@@ -43,7 +43,14 @@ def seed_s3():
         ("documents", "project/specs.md", "# Project Specifications\n\n1. S3 Browser\n2. SQS Viewer"),
         ("documents", "config.json", '{\n  "app_name": "S3 UI Tool",\n  "version": "1.0.0",\n  "features": ["s3", "sqs"]\n}'),
         ("documents", "users.json", '[\n  {"id": 1, "name": "Alice"},\n  {"id": 2, "name": "Bob"}\n]'),
+        ("documents", "scripts/deploy.ps1", 'Write-Host "Deploying application..."\nStart-Sleep -Seconds 2\nWrite-Host "Done!"'),
+        ("documents", "web/index.htm", '<html><body><h1>Hello World</h1></body></html>'),
+        ("documents", "styles/main.sass", '$font-stack: Helvetica, sans-serif\n$primary-color: #333\n\nbody\n  font: 100% $font-stack\n  color: $primary-color'),
+        ("documents", "docs/manual.rst", 'User Manual\n===========\n\nThis is a reStructuredText document.'),
+        ("documents", "ui/window.xaml", '<Window x:Class="WpfApp1.MainWindow"\n        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"\n        Title="MainWindow" Height="450" Width="800">\n    <Grid>\n        <Button Content="Click Me" />\n    </Grid>\n</Window>'),
+        ("documents", "src/Program.cs", 'using System;\n\nclass Program\n{\n    static void Main()\n    {\n        Console.WriteLine("Hello C#");\n    }\n}'),
         ("images", "logo.txt", "[Fake Image Content]"),
+        ("images", "icon.svg", '<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">\n  <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />\n</svg>'),
         ("logs", "app.log", "INFO: Application started\nINFO: User logged in"),
         ("logs", "2024/01/access.log", "127.0.0.1 - - [01/Jan/2024] GET /index.html"),
         ("logs", "metrics.json", '{\n  "cpu": 45,\n  "memory": 1024,\n  "requests": 500\n}'),
@@ -72,6 +79,13 @@ def seed_sqs():
                         MessageBody=f'{{"order_id": {1000+i}, "status": "pending"}}'
                     )
                 print(f"Sent 5 messages to {queue_name}")
+            elif queue_name == "notifications-dlq":
+                for i in range(3):
+                    sqs.send_message(
+                        QueueUrl=queue_url,
+                        MessageBody=f'{{"error": "Failed to send email", "retry_count": {i+1}, "original_message_id": "msg-{i}"}}'
+                    )
+                print(f"Sent 3 persisted messages to {queue_name}")
                 
         except Exception as e:
             print(f"Error creating/seeding queue {queue_name}: {e}")
