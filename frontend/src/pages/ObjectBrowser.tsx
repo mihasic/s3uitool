@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Download, Eye, File, FilePlus, Folder, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -263,6 +263,26 @@ export function ObjectBrowser() {
       .finally(() => setLoading(false));
   }, [bucket, prefix]);
 
+  const handleNewFile = () => {
+    if (!data) return;
+
+    const existingNumbers = data.Objects.map((obj) => {
+      const fileName = obj.Key.split("/").pop() || "";
+      const match = fileName.match(/^newfile(\d+)\.json$/);
+      return match ? Number.parseInt(match[1], 10) : 0;
+    });
+
+    const nextNumber = (Math.max(0, ...existingNumbers) || 0) + 1;
+    const newFileName = `newfile${nextNumber}.json`;
+    const newKey = prefix + newFileName;
+
+    setSelectedFile({
+      key: newKey,
+      content: "{}",
+      isImage: false,
+    });
+  };
+
   const handleSave = async (newContent: string) => {
     if (!bucket || !selectedFile) return;
     try {
@@ -402,7 +422,11 @@ export function ObjectBrowser() {
           <span className="mx-2 text-muted-foreground">/</span>
           {prefix}
         </h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button onClick={handleNewFile}>
+            <FilePlus className="mr-2 h-4 w-4" />
+            New File
+          </Button>
           <Button onClick={() => setUploadModalOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             Upload
