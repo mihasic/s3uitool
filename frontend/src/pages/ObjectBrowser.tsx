@@ -9,6 +9,97 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
 
+const VIEWABLE_EXTENSIONS = new Set([
+	"txt",
+	"md",
+	"json",
+	"js",
+	"ts",
+	"tsx",
+	"jsx",
+	"html",
+	"css",
+	"scss",
+	"less",
+	"py",
+	"java",
+	"c",
+	"cpp",
+	"h",
+	"hpp",
+	"go",
+	"rs",
+	"rb",
+	"php",
+	"sh",
+	"bash",
+	"zsh",
+	"yaml",
+	"yml",
+	"xml",
+	"sql",
+	"ini",
+	"conf",
+	"properties",
+	"log",
+	"csv",
+	"ps1",
+	"htm",
+	"sass",
+	"rst",
+	"xaml",
+	"cs",
+]);
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"]);
+
+const getLanguageFromFilename = (filename: string): string => {
+	const ext = filename.split(".").pop()?.toLowerCase();
+	switch (ext) {
+		case "js":
+		case "jsx":
+			return "javascript";
+		case "ts":
+		case "tsx":
+			return "typescript";
+		case "py":
+			return "python";
+		case "md":
+			return "markdown";
+		case "sh":
+		case "bash":
+		case "zsh":
+			return "shell";
+		case "yml":
+		case "yaml":
+			return "yaml";
+		case "json":
+			return "json";
+		case "html":
+		case "htm":
+			return "html";
+		case "css":
+			return "css";
+		case "scss":
+		case "sass":
+		case "less":
+			return "scss";
+		case "sql":
+			return "sql";
+		case "xml":
+		case "xaml":
+			return "xml";
+		case "cs":
+			return "csharp";
+		case "ps1":
+			return "powershell";
+		case "rst":
+			return "restructuredtext";
+		default:
+			return "plaintext";
+	}
+};
+
 interface S3Object {
 	Key: string;
 	LastModified: string;
@@ -36,7 +127,7 @@ export function ObjectBrowser() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const [selectedFile, setSelectedFile] = useState<{ key: string; content: string } | null>(null);
+	const [selectedFile, setSelectedFile] = useState<{ key: string; content: string; isImage?: boolean } | null>(null);
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const [_viewLoading, setViewLoading] = useState(false);
 
@@ -235,6 +326,15 @@ export function ObjectBrowser() {
 		return parts.length > 0 ? `${parts.join("/")}/` : "";
 	};
 
+	const handleFileClick = (key: string) => {
+		const ext = key.split(".").pop()?.toLowerCase();
+		if (ext && VIEWABLE_EXTENSIONS.has(ext)) {
+			handleView(key);
+		} else {
+			handleDownload(key);
+		}
+	};
+
 	if (loading) return <div className="p-6">Loading objects...</div>;
 	if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
 	if (!data) return null;
@@ -304,7 +404,13 @@ export function ObjectBrowser() {
 										<File className="h-4 w-4 text-gray-500" />
 									</TableCell>
 									<TableCell>
-										<span className="font-medium">{fileName}</span>
+										<button
+											type="button"
+											onClick={() => handleFileClick(obj.Key)}
+											className="font-medium hover:underline text-left"
+										>
+											{fileName}
+										</button>
 									</TableCell>
 									<TableCell>{formatSize(obj.Size)}</TableCell>
 									<TableCell>{new Date(obj.LastModified).toLocaleString()}</TableCell>
@@ -354,7 +460,11 @@ export function ObjectBrowser() {
 					</DialogHeader>
 					{selectedFile && (
 						<div className="flex-1 min-h-0">
-							<FileViewer content={selectedFile.content} onSave={handleSave} />
+							<FileViewer
+								content={selectedFile.content}
+								onSave={handleSave}
+								language={getLanguageFromFilename(selectedFile.key)}
+							/>
 						</div>
 					)}
 				</DialogContent>
