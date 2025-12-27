@@ -1,0 +1,318 @@
+openapi: 3.0.0
+info:
+  title: S3 & SQS UI API
+  version: 1.0.0
+paths:
+  /api/s3/buckets:
+    get:
+      summary: List all buckets
+      responses:
+        '200':
+          description: List of buckets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bucket'
+
+  /api/s3/buckets/{bucket}/objects:
+    get:
+      summary: List objects in a bucket (with prefix/delimiter support)
+      parameters:
+        - name: bucket
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of objects and common prefixes (folders)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectList'
+
+  /api/s3/buckets/{bucket}/objects/{key}:
+    get:
+      summary: Get object content and metadata
+      parameters:
+        - name: bucket
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/S3ObjectContent'
+    put:
+      summary: Update object content
+      parameters:
+        - name: bucket
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Object updated
+    delete:
+      summary: Delete object
+      parameters:
+        - name: bucket
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Object deleted
+
+  /api/s3/buckets/{bucket}/delete-prefix:
+    post:
+      summary: Recursively delete a prefix (folder)
+      parameters:
+        - name: bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prefix:
+                  type: string
+      responses:
+        '200':
+          description: Prefix deleted
+
+  /api/s3/copy:
+    post:
+      summary: Copy or Move object
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileOperation'
+      responses:
+        '200':
+          description: Operation successful
+
+  /api/sqs/queues:
+    get:
+      summary: List queues
+      responses:
+        '200':
+          description: List of queues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Queue'
+
+  /api/sqs/queues/{queue_name}/messages:
+    get:
+      summary: Receive messages
+      parameters:
+        - name: queue_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+    post:
+      summary: Send message
+      parameters:
+        - name: queue_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Message sent
+
+  /api/sqs/queues/{queue_name}/messages/{receipt_handle}:
+    delete:
+      summary: Delete message
+      parameters:
+        - name: queue_name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: receipt_handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Message deleted
+
+  /api/sqs/queues/{queue_name}/purge:
+    post:
+      summary: Purge queue
+      parameters:
+        - name: queue_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Queue purged
+
+components:
+  schemas:
+    Bucket:
+      type: object
+      properties:
+        Name:
+          type: string
+        CreationDate:
+          type: string
+          format: date-time
+
+    S3Object:
+      type: object
+      properties:
+        Key:
+          type: string
+        LastModified:
+          type: string
+          format: date-time
+        Size:
+          type: integer
+        ETag:
+          type: string
+
+    ObjectList:
+      type: object
+      properties:
+        Contents:
+          type: array
+          items:
+            $ref: '#/components/schemas/S3Object'
+        CommonPrefixes:
+          type: array
+          items:
+            type: object
+            properties:
+              Prefix:
+                type: string
+
+    S3ObjectContent:
+      allOf:
+        - $ref: '#/components/schemas/S3Object'
+        - type: object
+          properties:
+            ContentType:
+              type: string
+            Content:
+              type: string
+            Metadata:
+              type: object
+              additionalProperties:
+                type: string
+
+    FileOperation:
+      type: object
+      properties:
+        SourceBucket:
+          type: string
+        SourceKey:
+          type: string
+        DestinationBucket:
+          type: string
+        DestinationKey:
+          type: string
+        Operation:
+          type: string
+          enum: [copy, move]
+        Overwrite:
+          type: boolean
+
+    Queue:
+      type: object
+      properties:
+        Url:
+          type: string
+        Name:
+          type: string
+        Attributes:
+          type: object
+          additionalProperties:
+            type: string
+
+    Message:
+      type: object
+      properties:
+        MessageId:
+          type: string
+        ReceiptHandle:
+          type: string
+        Body:
+          type: string
+        MD5OfBody:
+          type: string
+        Attributes:
+          type: object
+          additionalProperties:
+            type: string
+
+    SendMessageRequest:
+      type: object
+      properties:
+        Body:
+          type: string
+        DelaySeconds:
+          type: integer
