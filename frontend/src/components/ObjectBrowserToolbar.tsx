@@ -1,6 +1,7 @@
 import { ArrowLeft, FilePlus, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { getParentPrefix } from "@/lib/file-utils";
 
 interface ObjectBrowserToolbarProps {
   bucket: string;
@@ -10,13 +11,6 @@ interface ObjectBrowserToolbarProps {
 }
 
 export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload }: ObjectBrowserToolbarProps) {
-  const getParentPrefix = (currentPrefix: string) => {
-    if (!currentPrefix) return "";
-    const parts = currentPrefix.split("/").filter(Boolean);
-    parts.pop();
-    return parts.length > 0 ? `${parts.join("/")}/` : "";
-  };
-
   return (
     <div className="flex items-center gap-4 mb-6">
       <Button variant="outline" size="icon" asChild>

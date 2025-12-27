@@ -88,3 +88,10 @@ export const getLanguageFromFilename = (filename: string): string => {
       return "plaintext";
   }
 };
+
+export const getParentPrefix = (currentPrefix: string) => {
+  if (!currentPrefix) return "";
+  const parts = currentPrefix.split("/").filter(Boolean);
+  parts.pop();
+  return parts.length > 0 ? `${parts.join("/")}/` : "";
+};
