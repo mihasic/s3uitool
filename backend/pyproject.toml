@@ -25,7 +25,7 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["E", "F", "I", "B", "UP", "FAST"]
 ignore = []
 
 [tool.mypy]
