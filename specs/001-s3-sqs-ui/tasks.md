@@ -42,61 +42,61 @@ description: "Task list for S3 & SQS UI implementation"
 
 **Purpose**: Core connectivity and shared components
 
-- [ ] T012 Implement `backend/src/s3_routes.py` with Boto3 client initialization
-- [ ] T013 Implement `backend/src/sqs_routes.py` with Boto3 client initialization
-- [ ] T014 [P] Create `frontend/src/components/Layout.tsx` (Sidebar/Header structure)
-- [ ] T015 [P] Setup React Router in `frontend/src/App.tsx` with routes for S3 and SQS
+- [x] T012 Implement `backend/src/s3_routes.py` with Boto3 client initialization
+- [x] T013 Implement `backend/src/sqs_routes.py` with Boto3 client initialization
+- [x] T014 [P] Create `frontend/src/components/Layout.tsx` (Sidebar/Header structure)
+- [x] T015 [P] Setup React Router in `frontend/src/App.tsx` with routes for S3 and SQS
 
 ## Phase 3: User Story 1 - S3 Browser & Viewer (Priority: P1)
 
 **Goal**: Browse buckets and view file contents.
 **Independent Test**: Can list buckets, navigate folders, and view JSON content.
 
-- [ ] T016 [US1] Implement `GET /api/s3/buckets` in `backend/src/s3_routes.py`
-- [ ] T017 [US1] Implement `GET /api/s3/buckets/{bucket}/objects` in `backend/src/s3_routes.py` (with prefix support)
-- [ ] T018 [US1] Implement `GET /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
-- [ ] T019 [P] [US1] Create `frontend/src/pages/BucketList.tsx` to display buckets
-- [ ] T020 [P] [US1] Create `frontend/src/pages/ObjectBrowser.tsx` with folder navigation logic and metadata columns (Size, ETag, LastModified)
-- [ ] T021 [US1] Integrate `@monaco-editor/react` in `frontend/src/components/FileViewer.tsx`
-- [ ] T022 [US1] Implement "View/Edit" modal in `frontend/src/pages/ObjectBrowser.tsx` connecting to FileViewer
-- [ ] T023 [US1] Implement file download logic in `frontend/src/pages/ObjectBrowser.tsx`
+- [x] T016 [US1] Implement `GET /api/s3/buckets` in `backend/src/s3_routes.py`
+- [x] T017 [US1] Implement `GET /api/s3/buckets/{bucket}/objects` in `backend/src/s3_routes.py` (with prefix support)
+- [x] T018 [US1] Implement `GET /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
+- [x] T019 [P] [US1] Create `frontend/src/pages/BucketList.tsx` to display buckets
+- [x] T020 [P] [US1] Create `frontend/src/pages/ObjectBrowser.tsx` with folder navigation logic and metadata columns (Size, ETag, LastModified)
+- [x] T021 [US1] Integrate `@monaco-editor/react` in `frontend/src/components/FileViewer.tsx`
+- [x] T022 [US1] Implement "View/Edit" modal in `frontend/src/pages/ObjectBrowser.tsx` connecting to FileViewer
+- [x] T023 [US1] Implement file download logic in `frontend/src/pages/ObjectBrowser.tsx`
 
 ## Phase 4: User Story 2 - S3 File Management (Priority: P1)
 
 **Goal**: Edit, copy, move, and delete files/folders.
 **Independent Test**: Can modify content, move files, and recursively delete folders.
 
-- [ ] T024 [US2] Implement `PUT /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
-- [ ] T025 [US2] Implement `DELETE /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
-- [ ] T026 [US2] Implement `POST /api/s3/buckets/{bucket}/delete-prefix` in `backend/src/s3_routes.py` (Recursive delete)
-- [ ] T027 [US2] Implement `POST /api/s3/copy` in `backend/src/s3_routes.py` (Copy/Move logic)
-- [ ] T028 [P] [US2] Add "Save" functionality to `frontend/src/components/FileViewer.tsx`
-- [ ] T029 [P] [US2] Implement "Delete" action (single & recursive) in `frontend/src/pages/ObjectBrowser.tsx`
-- [ ] T030 [US2] Create `frontend/src/components/CopyMoveModal.tsx` with destination input
-- [ ] T031 [US2] Integrate Copy/Move logic in `frontend/src/pages/ObjectBrowser.tsx` with conflict prompt
+- [x] T024 [US2] Implement `PUT /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
+- [x] T025 [US2] Implement `DELETE /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
+- [x] T026 [US2] Implement `POST /api/s3/buckets/{bucket}/delete-prefix` in `backend/src/s3_routes.py` (Recursive delete)
+- [x] T027 [US2] Implement `POST /api/s3/copy` in `backend/src/s3_routes.py` (Copy/Move logic)
+- [x] T028 [P] [US2] Add "Save" functionality to `frontend/src/components/FileViewer.tsx`
+- [x] T029 [P] [US2] Implement "Delete" action (single & recursive) in `frontend/src/pages/ObjectBrowser.tsx`
+- [x] T030 [US2] Create `frontend/src/components/CopyMoveModal.tsx` with destination input
+- [x] T031 [US2] Integrate Copy/Move logic in `frontend/src/pages/ObjectBrowser.tsx` with conflict prompt
 
 ## Phase 5: User Story 3 - SQS Queue Management (Priority: P2)
 
 **Goal**: View queues and manage messages.
 **Independent Test**: Can list queues, view messages, and purge queues.
 
-- [ ] T032 [US3] Implement `GET /api/sqs/queues` in `backend/src/sqs_routes.py`
-- [ ] T033 [US3] Implement `GET /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Short polling)
-- [ ] T034 [US3] Implement `POST /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Send)
-- [ ] T035 [US3] Implement `DELETE /api/sqs/queues/{queue_name}/messages/{receipt_handle}` in `backend/src/sqs_routes.py`
-- [ ] T036 [US3] Implement `POST /api/sqs/queues/{queue_name}/purge` in `backend/src/sqs_routes.py`
-- [ ] T037 [P] [US3] Create `frontend/src/pages/QueueList.tsx`
-- [ ] T038 [P] [US3] Create `frontend/src/pages/MessageList.tsx` with polling interval
-- [ ] T039 [US3] Create `frontend/src/components/SendMessageModal.tsx`
-- [ ] T040 [US3] Implement Message Detail view modal in `frontend/src/pages/MessageList.tsx`
+- [x] T032 [US3] Implement `GET /api/sqs/queues` in `backend/src/sqs_routes.py`
+- [x] T033 [US3] Implement `GET /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Short polling)
+- [x] T034 [US3] Implement `POST /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Send)
+- [x] T035 [US3] Implement `DELETE /api/sqs/queues/{queue_name}/messages/{receipt_handle}` in `backend/src/sqs_routes.py`
+- [x] T036 [US3] Implement `POST /api/sqs/queues/{queue_name}/purge` in `backend/src/sqs_routes.py`
+- [x] T037 [P] [US3] Create `frontend/src/pages/QueueList.tsx`
+- [x] T038 [P] [US3] Create `frontend/src/pages/MessageList.tsx` with polling interval
+- [x] T039 [US3] Create `frontend/src/components/SendMessageModal.tsx`
+- [x] T040 [US3] Implement Message Detail view modal in `frontend/src/pages/MessageList.tsx`
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
 **Purpose**: UX refinements and error handling
 
-- [ ] T041 Implement global error handling (Toasts) in `frontend/src/App.tsx`
-- [ ] T042 Implement keyboard navigation (Arrow keys, Enter, Del) in `frontend/src/pages/ObjectBrowser.tsx`
-- [ ] T043 Verify Docker build size and startup time
+- [x] T041 Implement global error handling (Toasts) in `frontend/src/App.tsx`
+- [x] T042 Implement keyboard navigation (Arrow keys, Enter, Del) in `frontend/src/pages/ObjectBrowser.tsx`
+- [x] T043 Verify Docker build size and startup time
 
 ## Dependencies
 
