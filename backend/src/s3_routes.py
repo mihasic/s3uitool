@@ -150,7 +150,7 @@ def download_object(bucket: str, key: str, inline: bool = False) -> StreamingRes
 
 
 @router.put("/buckets/{bucket}/objects/{key:path}")
-async def upload_object(bucket: str, key: str, file: Annotated[UploadFile, File()]) -> dict[str, str]:
+def upload_object(bucket: str, key: str, file: Annotated[UploadFile, File()]) -> dict[str, str]:
     s3 = get_s3_client()
     try:
         extra_args = {}
