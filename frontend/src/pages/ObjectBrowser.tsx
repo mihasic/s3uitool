@@ -23,8 +23,6 @@ export function ObjectBrowser() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<{ key: string; content: string; isImage?: boolean } | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_viewLoading, setViewLoading] = useState(false);
 
   const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
@@ -57,7 +55,6 @@ export function ObjectBrowser() {
         return;
       }
 
-      setViewLoading(true);
       try {
         const response = await api.get<{ Content: string | null; ContentType: string }>(
           `s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
@@ -70,8 +67,6 @@ export function ObjectBrowser() {
       } catch (err) {
         console.error(err);
         toast.error("Failed to load file");
-      } finally {
-        setViewLoading(false);
       }
     },
     [bucket],

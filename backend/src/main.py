@@ -5,7 +5,7 @@ from config import settings
 from s3_routes import router as s3_router
 from sqs_routes import router as sqs_router
 
-app = FastAPI(title="S3 UI Tool")
+app = FastAPI(title="S3 & SQS UI")
 
 app.add_middleware(
     CORSMiddleware,
