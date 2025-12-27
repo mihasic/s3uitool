@@ -1,123 +1,16 @@
-import { ArrowLeft, ArrowRight, Copy, Download, Eye, File, FilePlus, Folder, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
 import { FileViewer } from "@/components/FileViewer";
+import { NewFileModal } from "@/components/NewFileModal";
+import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
+import { ObjectListTable } from "@/components/ObjectListTable";
 import { UploadModal } from "@/components/UploadModal";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
-
-const VIEWABLE_EXTENSIONS = new Set([
-  "txt",
-  "md",
-  "json",
-  "js",
-  "ts",
-  "tsx",
-  "jsx",
-  "html",
-  "css",
-  "scss",
-  "less",
-  "py",
-  "java",
-  "c",
-  "cpp",
-  "h",
-  "hpp",
-  "go",
-  "rs",
-  "rb",
-  "php",
-  "sh",
-  "bash",
-  "zsh",
-  "yaml",
-  "yml",
-  "xml",
-  "sql",
-  "ini",
-  "conf",
-  "properties",
-  "log",
-  "csv",
-  "ps1",
-  "htm",
-  "sass",
-  "rst",
-  "xaml",
-  "cs",
-]);
-
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"]);
-
-const getLanguageFromFilename = (filename: string): string => {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "js":
-    case "jsx":
-      return "javascript";
-    case "ts":
-    case "tsx":
-      return "typescript";
-    case "py":
-      return "python";
-    case "md":
-      return "markdown";
-    case "sh":
-    case "bash":
-    case "zsh":
-      return "shell";
-    case "yml":
-    case "yaml":
-      return "yaml";
-    case "json":
-      return "json";
-    case "html":
-    case "htm":
-      return "html";
-    case "css":
-      return "css";
-    case "scss":
-    case "sass":
-    case "less":
-      return "scss";
-    case "sql":
-      return "sql";
-    case "xml":
-    case "xaml":
-      return "xml";
-    case "cs":
-      return "csharp";
-    case "ps1":
-      return "powershell";
-    case "rst":
-      return "restructuredtext";
-    default:
-      return "plaintext";
-  }
-};
-
-interface S3Object {
-  Key: string;
-  LastModified: string;
-  ETag: string;
-  Size: number;
-  StorageClass: string;
-}
-
-interface CommonPrefix {
-  Prefix: string;
-}
-
-interface ObjectListResponse {
-  Objects: S3Object[];
-  CommonPrefixes: CommonPrefix[];
-  Prefix: string;
-}
+import { getLanguageFromFilename, IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import type { ObjectListResponse } from "@/types/s3";
 
 export function ObjectBrowser() {
   const { bucket } = useParams<{ bucket: string }>();
@@ -136,6 +29,7 @@ export function ObjectBrowser() {
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
   const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [newFileModalOpen, setNewFileModalOpen] = useState(false);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
@@ -210,7 +104,7 @@ export function ObjectBrowser() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedFile || copyMoveModalOpen || uploadModalOpen) return; // Disable if modal is open
+      if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return; // Disable if modal is open
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -246,6 +140,7 @@ export function ObjectBrowser() {
     selectedFile,
     copyMoveModalOpen,
     uploadModalOpen,
+    newFileModalOpen,
     bucket,
     navigate,
     handleDelete,
@@ -263,21 +158,9 @@ export function ObjectBrowser() {
       .finally(() => setLoading(false));
   }, [bucket, prefix]);
 
-  const handleNewFile = () => {
-    if (!data) return;
-
-    const existingNumbers = data.Objects.map((obj) => {
-      const fileName = obj.Key.split("/").pop() || "";
-      const match = fileName.match(/^newfile(\d+)\.json$/);
-      return match ? Number.parseInt(match[1], 10) : 0;
-    });
-
-    const nextNumber = (Math.max(0, ...existingNumbers) || 0) + 1;
-    const newFileName = `newfile${nextNumber}.json`;
-    const newKey = prefix + newFileName;
-
+  const handleCreateFile = (key: string) => {
     setSelectedFile({
-      key: newKey,
+      key,
       content: "{}",
       isImage: false,
     });
@@ -377,157 +260,29 @@ export function ObjectBrowser() {
     );
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
-  };
-
-  const getParentPrefix = (currentPrefix: string) => {
-    if (!currentPrefix) return "";
-    const parts = currentPrefix.split("/").filter(Boolean);
-    parts.pop();
-    return parts.length > 0 ? `${parts.join("/")}/` : "";
-  };
-
-  const handleFileClick = (key: string) => {
-    const ext = key.split(".").pop()?.toLowerCase();
-    if (ext && (VIEWABLE_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext))) {
-      handleView(key);
-    } else {
-      handleDownload(key);
-    }
-  };
-
   if (loading) return <div className="p-6">Loading objects...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
-  if (!data) return null;
+  if (!data || !bucket) return null;
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="icon" asChild>
-          <Link to={prefix ? `/s3/${bucket}?prefix=${getParentPrefix(prefix)}` : "/s3"}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold">
-          <Link to="/s3" className="hover:underline text-muted-foreground">
-            Buckets
-          </Link>
-          <span className="mx-2 text-muted-foreground">/</span>
-          {bucket}
-          <span className="mx-2 text-muted-foreground">/</span>
-          {prefix}
-        </h1>
-        <div className="ml-auto flex gap-2">
-          <Button onClick={handleNewFile}>
-            <FilePlus className="mr-2 h-4 w-4" />
-            New File
-          </Button>
-          <Button onClick={() => setUploadModalOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload
-          </Button>
-        </div>
-      </div>
+      <ObjectBrowserToolbar
+        bucket={bucket}
+        prefix={prefix}
+        onNewFile={() => setNewFileModalOpen(true)}
+        onUpload={() => setUploadModalOpen(true)}
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]"></TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Last Modified</TableHead>
-              <TableHead>ETag</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.CommonPrefixes.map((p, index) => {
-              const folderName = p.Prefix.split("/").filter(Boolean).pop() || "";
-              const isSelected = index === selectedIndex;
-              return (
-                <TableRow key={p.Prefix} className={isSelected ? "bg-muted" : ""}>
-                  <TableCell>
-                    <Folder className="h-4 w-4 text-blue-500" />
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/s3/${bucket}?prefix=${encodeURIComponent(p.Prefix)}`}
-                      className="font-medium hover:underline text-blue-600"
-                    >
-                      {folderName}/
-                    </Link>
-                  </TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-              );
-            })}
-            {data.Objects.map((obj, index) => {
-              const fileName = obj.Key.split("/").pop() || obj.Key;
-              const globalIndex = data.CommonPrefixes.length + index;
-              const isSelected = globalIndex === selectedIndex;
-              return (
-                <TableRow key={obj.Key} className={isSelected ? "bg-muted" : ""}>
-                  <TableCell>
-                    <File className="h-4 w-4 text-gray-500" />
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      type="button"
-                      onClick={() => handleFileClick(obj.Key)}
-                      className="font-medium hover:underline text-left"
-                    >
-                      {fileName}
-                    </button>
-                  </TableCell>
-                  <TableCell>{formatSize(obj.Size)}</TableCell>
-                  <TableCell>{new Date(obj.LastModified).toLocaleString()}</TableCell>
-                  <TableCell className="font-mono text-xs">{obj.ETag.replace(/"/g, "")}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleView(obj.Key)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDownload(obj.Key)}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleCopy(obj.Key)} title="Copy">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleMove(obj.Key)} title="Move">
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(obj.Key)}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {data.Objects.length === 0 && data.CommonPrefixes.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                  No objects found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ObjectListTable
+        data={data}
+        bucket={bucket}
+        selectedIndex={selectedIndex}
+        onView={handleView}
+        onDownload={handleDownload}
+        onCopy={handleCopy}
+        onMove={handleMove}
+        onDelete={handleDelete}
+      />
 
       <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
@@ -566,6 +321,13 @@ export function ObjectBrowser() {
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onUpload={handleUpload}
+        currentPrefix={prefix}
+      />
+
+      <NewFileModal
+        isOpen={newFileModalOpen}
+        onClose={() => setNewFileModalOpen(false)}
+        onCreate={handleCreateFile}
         currentPrefix={prefix}
       />
     </div>

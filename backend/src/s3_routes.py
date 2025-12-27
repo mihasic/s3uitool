@@ -1,6 +1,6 @@
+import mimetypes
 from datetime import datetime
 from typing import Annotated, Any
-import mimetypes
 
 import boto3
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -129,7 +129,7 @@ def download_object(bucket: str, key: str, inline: bool = False) -> StreamingRes
     s3 = get_s3_client()
     try:
         response = s3.get_object(Bucket=bucket, Key=key)
-        
+
         content_type = response.get("ContentType", "application/octet-stream")
         # If generic or missing, try to guess from filename
         if not content_type or content_type == "application/octet-stream":
@@ -141,9 +141,7 @@ def download_object(bucket: str, key: str, inline: bool = False) -> StreamingRes
         return StreamingResponse(
             response["Body"],
             media_type=content_type,
-            headers={
-                "Content-Disposition": f'{disposition}; filename="{key.split("/")[-1]}"'
-            },
+            headers={"Content-Disposition": f'{disposition}; filename="{key.split("/")[-1]}"'},
         )
     except s3.exceptions.NoSuchKey as e:
         raise HTTPException(status_code=404, detail="Object not found") from e

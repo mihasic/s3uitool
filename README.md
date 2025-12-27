@@ -42,7 +42,23 @@ bun install
 bun run dev
 ```
 
-### Linting & Formatting
+### Quality Checks
 
-- **Backend**: `uv run ruff check .` / `uv run ruff format .`
-- **Frontend**: `bun biome check .` / `bun biome format .`
+#### Backend (Python)
+
+Run these commands from the `backend` directory:
+
+- **Linting**: `uv run ruff check .`
+- **Formatting**: `uv run ruff format .`
+- **Type Checking**: `uv run mypy .`
+- **Tests**: `uv run pytest`
+
+#### Frontend (TypeScript/React)
+
+Run these commands from the `frontend` directory:
+
+- **Linting & Formatting**: `bunx biome check .`
+  - To apply fixes: `bunx biome check --write .`
+  - To format only: `bunx biome format --write .`
+- **Type Checking**: `bunx tsc --noEmit`
+
