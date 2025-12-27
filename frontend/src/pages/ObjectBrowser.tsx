@@ -1,9 +1,10 @@
-import { ArrowLeft, ArrowRight, Copy, Download, Eye, File, Folder, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
 import { FileViewer } from "@/components/FileViewer";
+import { UploadModal } from "@/components/UploadModal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -134,6 +135,7 @@ export function ObjectBrowser() {
   const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
   const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
@@ -208,7 +210,7 @@ export function ObjectBrowser() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedFile || copyMoveModalOpen) return; // Disable if modal is open
+      if (selectedFile || copyMoveModalOpen || uploadModalOpen) return; // Disable if modal is open
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -238,7 +240,17 @@ export function ObjectBrowser() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [items, selectedIndex, selectedFile, copyMoveModalOpen, bucket, navigate, handleDelete, handleView]);
+  }, [
+    items,
+    selectedIndex,
+    selectedFile,
+    copyMoveModalOpen,
+    uploadModalOpen,
+    bucket,
+    navigate,
+    handleDelete,
+    handleView,
+  ]);
 
   useEffect(() => {
     if (!bucket) return;
@@ -272,6 +284,29 @@ export function ObjectBrowser() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to save file");
+    }
+  };
+
+  const handleUpload = async (file: File, key: string) => {
+    if (!bucket) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`, formData);
+
+      toast.success("File uploaded successfully");
+      // Refresh list
+      setLoading(true);
+      api
+        .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
+        .then(setData)
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload file");
+      throw err; // Re-throw to let modal know it failed
     }
   };
 
@@ -367,6 +402,12 @@ export function ObjectBrowser() {
           <span className="mx-2 text-muted-foreground">/</span>
           {prefix}
         </h1>
+        <div className="ml-auto">
+          <Button onClick={() => setUploadModalOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -495,6 +536,13 @@ export function ObjectBrowser() {
         onConfirm={handleCopyMoveConfirm}
         sourceKey={copyMoveSourceKey}
         action={copyMoveAction}
+      />
+
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUpload={handleUpload}
+        currentPrefix={prefix}
       />
     </div>
   );
