@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     aws_access_key_id: str = "test"
     aws_secret_access_key: str = "test"
