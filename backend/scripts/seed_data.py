@@ -1,5 +1,8 @@
 import boto3
 import os
+import base64
+import mimetypes
+from typing import Any
 
 # Add src to path to import config if needed, or just hardcode for the seed script
 # Hardcoding ensures it runs standalone easily without path manipulation issues
@@ -8,7 +11,7 @@ REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", "test")
 SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 
-def get_client(service):
+def get_client(service: str) -> Any:
     return boto3.client(
         service,
         endpoint_url=ENDPOINT_URL,
@@ -17,7 +20,7 @@ def get_client(service):
         aws_secret_access_key=SECRET_KEY,
     )
 
-def seed_s3():
+def seed_s3() -> None:
     s3 = get_client("s3")
     buckets = ["documents", "images", "logs"]
     
@@ -51,16 +54,24 @@ def seed_s3():
         ("documents", "src/Program.cs", 'using System;\n\nclass Program\n{\n    static void Main()\n    {\n        Console.WriteLine("Hello C#");\n    }\n}'),
         ("images", "logo.txt", "[Fake Image Content]"),
         ("images", "icon.svg", '<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">\n  <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />\n</svg>'),
+        # Green 10x10 JPEG
+        ("images", "photo.jpg", base64.b64decode("/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAKAAoDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDWooor80PyA//Z")),
+        # Red 5x5 PNG
+        ("images", "design.png", base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==")),
         ("logs", "app.log", "INFO: Application started\nINFO: User logged in"),
         ("logs", "2024/01/access.log", "127.0.0.1 - - [01/Jan/2024] GET /index.html"),
         ("logs", "metrics.json", '{\n  "cpu": 45,\n  "memory": 1024,\n  "requests": 500\n}'),
     ]
 
     for bucket, key, content in files:
-        s3.put_object(Bucket=bucket, Key=key, Body=content)
-        print(f"Uploaded {key} to {bucket}")
+        content_type, _ = mimetypes.guess_type(key)
+        if not content_type:
+            content_type = "application/octet-stream"
+        
+        s3.put_object(Bucket=bucket, Key=key, Body=content, ContentType=content_type)
+        print(f"Uploaded {key} to {bucket} as {content_type}")
 
-def seed_sqs():
+def seed_sqs() -> None:
     sqs = get_client("sqs")
     queues = ["orders-queue", "notifications-dlq", "email-jobs"]
     

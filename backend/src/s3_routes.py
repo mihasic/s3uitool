@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated, Any
+import mimetypes
 
 import boto3
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -124,14 +125,25 @@ def get_object(bucket: str, key: str) -> dict[str, Any]:
 
 
 @router.get("/buckets/{bucket}/download/{key:path}")
-def download_object(bucket: str, key: str) -> StreamingResponse:
+def download_object(bucket: str, key: str, inline: bool = False) -> StreamingResponse:
     s3 = get_s3_client()
     try:
         response = s3.get_object(Bucket=bucket, Key=key)
+        
+        content_type = response.get("ContentType", "application/octet-stream")
+        # If generic or missing, try to guess from filename
+        if not content_type or content_type == "application/octet-stream":
+            guessed_type, _ = mimetypes.guess_type(key)
+            if guessed_type:
+                content_type = guessed_type
+
+        disposition = "inline" if inline else "attachment"
         return StreamingResponse(
             response["Body"],
-            media_type=response.get("ContentType", "application/octet-stream"),
-            headers={"Content-Disposition": f'attachment; filename="{key.split("/")[-1]}"'},
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'{disposition}; filename="{key.split("/")[-1]}"'
+            },
         )
     except s3.exceptions.NoSuchKey as e:
         raise HTTPException(status_code=404, detail="Object not found") from e
@@ -143,7 +155,15 @@ def download_object(bucket: str, key: str) -> StreamingResponse:
 async def upload_object(bucket: str, key: str, file: Annotated[UploadFile, File()]) -> dict[str, str]:
     s3 = get_s3_client()
     try:
-        s3.upload_fileobj(file.file, bucket, key)
+        extra_args = {}
+        if file.content_type:
+            extra_args["ContentType"] = file.content_type
+        else:
+            guessed_type, _ = mimetypes.guess_type(key)
+            if guessed_type:
+                extra_args["ContentType"] = guessed_type
+
+        s3.upload_fileobj(file.file, bucket, key, ExtraArgs=extra_args)
         return {"message": "File uploaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

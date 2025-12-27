@@ -149,13 +149,24 @@ export function ObjectBrowser() {
 	const handleView = useCallback(
 		async (key: string) => {
 			if (!bucket) return;
+			const ext = key.split(".").pop()?.toLowerCase();
+
+			if (ext && IMAGE_EXTENSIONS.has(ext)) {
+				setSelectedFile({
+					key,
+					content: `${import.meta.env.VITE_API_URL || "/api"}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+					isImage: true,
+				});
+				return;
+			}
+
 			setViewLoading(true);
 			try {
 				const response = await api.get<{ Content: string | null; ContentType: string }>(
 					`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
 				);
 				if (response.Content !== null) {
-					setSelectedFile({ key, content: response.Content });
+					setSelectedFile({ key, content: response.Content, isImage: false });
 				} else {
 					toast.error("Binary file or empty content");
 				}
@@ -328,7 +339,7 @@ export function ObjectBrowser() {
 
 	const handleFileClick = (key: string) => {
 		const ext = key.split(".").pop()?.toLowerCase();
-		if (ext && VIEWABLE_EXTENSIONS.has(ext)) {
+		if (ext && (VIEWABLE_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext))) {
 			handleView(key);
 		} else {
 			handleDownload(key);
@@ -459,12 +470,20 @@ export function ObjectBrowser() {
 						<DialogTitle>{selectedFile?.key}</DialogTitle>
 					</DialogHeader>
 					{selectedFile && (
-						<div className="flex-1 min-h-0">
-							<FileViewer
-								content={selectedFile.content}
-								onSave={handleSave}
-								language={getLanguageFromFilename(selectedFile.key)}
-							/>
+						<div className="flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-md overflow-hidden">
+							{selectedFile.isImage ? (
+								<img
+									src={selectedFile.content}
+									alt={selectedFile.key}
+									className="max-w-full max-h-full object-contain"
+								/>
+							) : (
+								<FileViewer
+									content={selectedFile.content}
+									onSave={handleSave}
+									language={getLanguageFromFilename(selectedFile.key)}
+								/>
+							)}
 						</div>
 					)}
 				</DialogContent>
