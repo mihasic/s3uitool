@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .config import settings
+from config import settings
 
 router = APIRouter(prefix="/s3", tags=["s3"])
 

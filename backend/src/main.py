@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .s3_routes import router as s3_router
-from .sqs_routes import router as sqs_router
+from s3_routes import router as s3_router
+from sqs_routes import router as sqs_router
 
 app = FastAPI(title="S3 UI Tool")
 

@@ -1,9 +1,10 @@
-import boto3
 from typing import Any
+
+import boto3
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .config import settings
+from config import settings
 
 router = APIRouter(prefix="/sqs", tags=["sqs"])
 
