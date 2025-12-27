@@ -26,17 +26,17 @@ description: "Task list for S3 & SQS UI implementation"
 
 **Purpose**: Project initialization, standards, and developer experience
 
-- [ ] T001 Initialize backend with `uv` in `backend/` (configure `ruff` for linting/formatting, `mypy` for types)
-- [ ] T002 Initialize frontend with `bun create vite` in `frontend/` (configure `biome` for linting/formatting)
-- [ ] T003 Create `Dockerfile` in root with multi-stage build (Bun -> uv -> Python)
-- [ ] T004 Create `docker-compose.yml` in root with LocalStack, App service, and environment variables
-- [ ] T005 Create `README.md` with developer documentation (setup, running, linting commands)
-- [ ] T006 Create `.vscode/launch.json` with configurations for Backend (FastAPI), Frontend (Chrome), and Compound launch
-- [ ] T007 Create `.github/workflows/ci.yml` for build verification and linting checks (Ruff/Biome)
-- [ ] T008 Implement `backend/src/config.py` for environment variables (AWS credentials, region)
-- [ ] T009 Implement `backend/src/main.py` with FastAPI app and StaticFiles mounting
-- [ ] T010 [P] Setup Shadcn UI in `frontend/` (init, theme, basic components)
-- [ ] T011 [P] Create `frontend/src/lib/api.ts` with native Fetch client base configuration
+- [x] T001 Initialize backend with `uv` in `backend/` (configure `ruff` for linting/formatting, `mypy` for types)
+- [x] T002 Initialize frontend with `bun create vite` in `frontend/` (configure `biome` for linting/formatting)
+- [x] T003 Create `Dockerfile` in root with multi-stage build (Bun -> uv -> Python)
+- [x] T004 Create `docker-compose.yml` in root with LocalStack, App service, and environment variables
+- [x] T005 Create `README.md` with developer documentation (setup, running, linting commands)
+- [x] T006 Create `.vscode/launch.json` with configurations for Backend (FastAPI), Frontend (Chrome), and Compound launch
+- [x] T007 Create `.github/workflows/ci.yml` for build verification and linting checks (Ruff/Biome)
+- [x] T008 Implement `backend/src/config.py` for environment variables (AWS credentials, region)
+- [x] T009 Implement `backend/src/main.py` with FastAPI app and StaticFiles mounting
+- [x] T010 [P] Setup Shadcn UI in `frontend/` (init, theme, basic components)
+- [x] T011 [P] Create `frontend/src/lib/api.ts` with native Fetch client base configuration
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
