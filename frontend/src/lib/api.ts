@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "/api";
+import { API_BASE_URL } from "./config";
 
 export class ApiError extends Error {
   status: number;
@@ -11,7 +11,7 @@ export class ApiError extends Error {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const response = await fetch(`${BASE_URL}${url}`, {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -39,7 +39,7 @@ export const api = {
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
   upload: <T>(endpoint: string, formData: FormData) => {
     const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    return fetch(`${BASE_URL}${url}`, {
+    return fetch(`${API_BASE_URL}${url}`, {
       method: "PUT",
       body: formData,
     }).then(async (res) => {

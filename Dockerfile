@@ -29,6 +29,10 @@ COPY --from=frontend-builder /app/dist /app/static
 # Copy backend source code
 COPY backend/src /app/src
 
+# Environment variables
+ENV ENABLE_S3=true
+ENV ENABLE_SQS=true
+
 # Expose port
 EXPOSE 8000
 

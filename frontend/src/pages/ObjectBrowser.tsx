@@ -9,6 +9,7 @@ import { ObjectListTable } from "@/components/ObjectListTable";
 import { UploadModal } from "@/components/UploadModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/config";
 import { getLanguageFromFilename, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 import type { ObjectListResponse } from "@/types/s3";
 
@@ -50,7 +51,7 @@ export function ObjectBrowser() {
       if (ext && IMAGE_EXTENSIONS.has(ext)) {
         setSelectedFile({
           key,
-          content: `${import.meta.env.VITE_API_URL || "/api"}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
           isImage: true,
         });
         return;
@@ -254,10 +255,7 @@ export function ObjectBrowser() {
   const handleDownload = (key: string) => {
     if (!bucket) return;
     // Direct download link
-    window.open(
-      `${import.meta.env.VITE_API_URL || "/api"}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`,
-      "_blank",
-    );
+    window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`, "_blank");
   };
 
   if (loading) return <div className="p-6">Loading objects...</div>;
