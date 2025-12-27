@@ -9,6 +9,8 @@ from pydantic import BaseModel
 
 from config import settings
 
+S3_DELETE_BATCH_SIZE = 1000
+
 router = APIRouter(prefix="/s3", tags=["s3"])
 
 
@@ -192,9 +194,9 @@ def delete_prefix(bucket: str, request: DeletePrefixRequest) -> dict[str, str]:
                     objects_to_delete.append({"Key": obj["Key"]})
 
         if objects_to_delete:
-            # Delete in batches of 1000 (S3 limit)
-            for i in range(0, len(objects_to_delete), 1000):
-                batch = objects_to_delete[i : i + 1000]
+            # Delete in batches (S3 limit)
+            for i in range(0, len(objects_to_delete), S3_DELETE_BATCH_SIZE):
+                batch = objects_to_delete[i : i + S3_DELETE_BATCH_SIZE]
                 s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
 
         return {"message": f"Deleted {len(objects_to_delete)} objects"}
