@@ -62,8 +62,9 @@ backend/
 │   ├── s3_router.py            # S3 routes and logic
 │   └── sqs_router.py           # SQS routes and logic
 ├── tests/               # Unified tests (unit/integration)
-├── pyproject.toml
-└── Dockerfile           # Multi-stage build
+└── pyproject.toml
+
+Dockerfile               # Multi-stage build (Root)
 
 frontend/
 ├── src/
