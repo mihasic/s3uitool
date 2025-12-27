@@ -36,14 +36,14 @@ description: "Task list for S3 & SQS UI implementation"
 - [ ] T008 Implement `backend/src/config.py` for environment variables (AWS credentials, region)
 - [ ] T009 Implement `backend/src/main.py` with FastAPI app and StaticFiles mounting
 - [ ] T010 [P] Setup Shadcn UI in `frontend/` (init, theme, basic components)
-- [ ] T011 [P] Create `frontend/src/lib/api.ts` with Axios/Fetch client base configuration
+- [ ] T011 [P] Create `frontend/src/lib/api.ts` with native Fetch client base configuration
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Core connectivity and shared components
 
-- [ ] T012 Implement `backend/src/s3.py` with Boto3 client initialization
-- [ ] T013 Implement `backend/src/sqs.py` with Boto3 client initialization
+- [ ] T012 Implement `backend/src/s3_routes.py` with Boto3 client initialization
+- [ ] T013 Implement `backend/src/sqs_routes.py` with Boto3 client initialization
 - [ ] T014 [P] Create `frontend/src/components/Layout.tsx` (Sidebar/Header structure)
 - [ ] T015 [P] Setup React Router in `frontend/src/App.tsx` with routes for S3 and SQS
 
@@ -52,11 +52,11 @@ description: "Task list for S3 & SQS UI implementation"
 **Goal**: Browse buckets and view file contents.
 **Independent Test**: Can list buckets, navigate folders, and view JSON content.
 
-- [ ] T016 [US1] Implement `GET /api/s3/buckets` in `backend/src/s3.py`
-- [ ] T017 [US1] Implement `GET /api/s3/buckets/{bucket}/objects` in `backend/src/s3.py` (with prefix support)
-- [ ] T018 [US1] Implement `GET /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3.py`
+- [ ] T016 [US1] Implement `GET /api/s3/buckets` in `backend/src/s3_routes.py`
+- [ ] T017 [US1] Implement `GET /api/s3/buckets/{bucket}/objects` in `backend/src/s3_routes.py` (with prefix support)
+- [ ] T018 [US1] Implement `GET /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
 - [ ] T019 [P] [US1] Create `frontend/src/pages/BucketList.tsx` to display buckets
-- [ ] T020 [P] [US1] Create `frontend/src/pages/ObjectBrowser.tsx` with folder navigation logic
+- [ ] T020 [P] [US1] Create `frontend/src/pages/ObjectBrowser.tsx` with folder navigation logic and metadata columns (Size, ETag, LastModified)
 - [ ] T021 [US1] Integrate `@monaco-editor/react` in `frontend/src/components/FileViewer.tsx`
 - [ ] T022 [US1] Implement "View/Edit" modal in `frontend/src/pages/ObjectBrowser.tsx` connecting to FileViewer
 - [ ] T023 [US1] Implement file download logic in `frontend/src/pages/ObjectBrowser.tsx`
@@ -66,10 +66,10 @@ description: "Task list for S3 & SQS UI implementation"
 **Goal**: Edit, copy, move, and delete files/folders.
 **Independent Test**: Can modify content, move files, and recursively delete folders.
 
-- [ ] T024 [US2] Implement `PUT /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3.py`
-- [ ] T025 [US2] Implement `DELETE /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3.py`
-- [ ] T026 [US2] Implement `POST /api/s3/buckets/{bucket}/delete-prefix` in `backend/src/s3.py` (Recursive delete)
-- [ ] T027 [US2] Implement `POST /api/s3/copy` in `backend/src/s3.py` (Copy/Move logic)
+- [ ] T024 [US2] Implement `PUT /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
+- [ ] T025 [US2] Implement `DELETE /api/s3/buckets/{bucket}/objects/{key}` in `backend/src/s3_routes.py`
+- [ ] T026 [US2] Implement `POST /api/s3/buckets/{bucket}/delete-prefix` in `backend/src/s3_routes.py` (Recursive delete)
+- [ ] T027 [US2] Implement `POST /api/s3/copy` in `backend/src/s3_routes.py` (Copy/Move logic)
 - [ ] T028 [P] [US2] Add "Save" functionality to `frontend/src/components/FileViewer.tsx`
 - [ ] T029 [P] [US2] Implement "Delete" action (single & recursive) in `frontend/src/pages/ObjectBrowser.tsx`
 - [ ] T030 [US2] Create `frontend/src/components/CopyMoveModal.tsx` with destination input
@@ -80,11 +80,11 @@ description: "Task list for S3 & SQS UI implementation"
 **Goal**: View queues and manage messages.
 **Independent Test**: Can list queues, view messages, and purge queues.
 
-- [ ] T032 [US3] Implement `GET /api/sqs/queues` in `backend/src/sqs.py`
-- [ ] T033 [US3] Implement `GET /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs.py` (Short polling)
-- [ ] T034 [US3] Implement `POST /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs.py` (Send)
-- [ ] T035 [US3] Implement `DELETE /api/sqs/queues/{queue_name}/messages/{receipt_handle}` in `backend/src/sqs.py`
-- [ ] T036 [US3] Implement `POST /api/sqs/queues/{queue_name}/purge` in `backend/src/sqs.py`
+- [ ] T032 [US3] Implement `GET /api/sqs/queues` in `backend/src/sqs_routes.py`
+- [ ] T033 [US3] Implement `GET /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Short polling)
+- [ ] T034 [US3] Implement `POST /api/sqs/queues/{queue_name}/messages` in `backend/src/sqs_routes.py` (Send)
+- [ ] T035 [US3] Implement `DELETE /api/sqs/queues/{queue_name}/messages/{receipt_handle}` in `backend/src/sqs_routes.py`
+- [ ] T036 [US3] Implement `POST /api/sqs/queues/{queue_name}/purge` in `backend/src/sqs_routes.py`
 - [ ] T037 [P] [US3] Create `frontend/src/pages/QueueList.tsx`
 - [ ] T038 [P] [US3] Create `frontend/src/pages/MessageList.tsx` with polling interval
 - [ ] T039 [US3] Create `frontend/src/components/SendMessageModal.tsx`
