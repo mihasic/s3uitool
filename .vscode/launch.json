@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Backend: FastAPI",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
       "args": [
@@ -17,9 +17,22 @@
         "AWS_ENDPOINT_URL": "http://localhost:4566",
         "AWS_DEFAULT_REGION": "us-east-1",
         "AWS_ACCESS_KEY_ID": "test",
-        "AWS_SECRET_ACCESS_KEY": "test"
+        "AWS_SECRET_ACCESS_KEY": "test",
+        "PYTHONPATH": "${workspaceFolder}/backend/src"
       },
       "justMyCode": true
+    },
+    {
+      "name": "Frontend: Dev Server",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "console": "integratedTerminal"
     },
     {
       "name": "Frontend: Chrome",
@@ -34,6 +47,7 @@
       "name": "Full Stack",
       "configurations": [
         "Backend: FastAPI",
+        "Frontend: Dev Server",
         "Frontend: Chrome"
       ]
     }
