@@ -29,6 +29,7 @@ Python 3.14 (Backend), TypeScript (Frontend): Follow standard conventions
 
 ## Recent Changes
 - 002-production-readiness: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
+- 002-production-readiness: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
 
 - 001-s3-sqs-ui: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
 
