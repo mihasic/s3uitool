@@ -2,8 +2,8 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Backend: FastAPI",
-      "type": "python",
+      "name": "API: FastAPI",
+      "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
       "args": [
@@ -12,29 +12,43 @@
         "--port",
         "8000"
       ],
-      "cwd": "${workspaceFolder}/backend",
+      "cwd": "${workspaceFolder}/api",
       "env": {
         "AWS_ENDPOINT_URL": "http://localhost:4566",
-        "AWS_DEFAULT_REGION": "us-east-1",
+        "AWS_DEFAULT_REGION": "eu-west-1",
         "AWS_ACCESS_KEY_ID": "test",
-        "AWS_SECRET_ACCESS_KEY": "test"
+        "AWS_SECRET_ACCESS_KEY": "test",
+        "PYTHONPATH": "${workspaceFolder}/api/src"
       },
       "justMyCode": true
     },
     {
-      "name": "Frontend: Chrome",
+      "name": "APP: Dev Server",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/app",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "APP: Chrome",
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/frontend/src"
+      "webRoot": "${workspaceFolder}/app/src"
     }
   ],
   "compounds": [
     {
       "name": "Full Stack",
       "configurations": [
-        "Backend: FastAPI",
-        "Frontend: Chrome"
+        "API: FastAPI",
+        "APP: Dev Server",
+        "APP: Chrome"
       ]
     }
   ]

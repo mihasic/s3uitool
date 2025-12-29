@@ -1,0 +1,26 @@
+{
+  "name": "s3uitool",
+  "private": true,
+  "workspaces": [
+    "app",
+    "e2e"
+  ],
+  "scripts": {
+    "dev": "concurrently \"bun run dev:api\" \"bun run dev:app\" --names \"API,APP\" --prefix-colors \"blue,green\"",
+    "dev:app": "bun run --filter app dev",
+    "dev:api": "cd api && uv run python -m fastapi dev src/main.py --port 8000",
+    "build": "bun run --filter app build",
+    "lint": "bun run --filter app lint",
+    "lint:api": "cd api && uv run ruff check . && uv run ruff format --check .",
+    "check": "bun run --filter app check",
+    "mypy": "cd api && uv run python -m mypy .",
+    "test:e2e": "bun run --filter e2e test",
+    "test:e2e:ui": "bun run --filter e2e test --ui",
+    "test:api": "cd api && cross-env PYTHONPATH=src uv run python -m pytest",
+    "seed": "cd api && uv run python scripts/seed_data.py"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0"
+  }
+}

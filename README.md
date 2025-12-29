@@ -26,39 +26,69 @@ A single-container web application to manage LocalStack S3 and SQS resources.
 
 ## Development
 
+### Project Structure
+
+- `api/`: Python FastAPI backend
+- `app/`: React/Vite frontend
+- `e2e/`: Playwright End-to-End tests
+
 ### Backend
 
 ```bash
-cd backend
+cd api
 uv sync
-uv run fastapi dev src/main.py
+uv run fastapi dev src/main.py --port 8000
 ```
 
 ### Frontend
 
 ```bash
-cd frontend
+cd app
 bun install
 bun run dev
 ```
 
-### Quality Checks
+### Testing
 
-#### Backend (Python)
+#### API Integration Tests
 
-Run these commands from the `backend` directory:
+Run from the root or `api` directory:
 
-- **Linting**: `uv run ruff check .`
-- **Formatting**: `uv run ruff format .`
-- **Type Checking**: `uv run mypy .`
-- **Tests**: `uv run pytest`
+```bash
+# From root
+PYTHONPATH=api/src uv run --directory api pytest
 
-#### Frontend (TypeScript/React)
+# From api directory
+cd api
+PYTHONPATH=src uv run pytest
+```
 
-Run these commands from the `frontend` directory:
+#### End-to-End Tests
 
-- **Linting & Formatting**: `bunx biome check .`
-  - To apply fixes: `bunx biome check --write .`
-  - To format only: `bunx biome format --write .`
-- **Type Checking**: `bunx tsc --noEmit`
+Requires backend and frontend to be running (or configured in `playwright.config.ts`).
+The default config starts the frontend automatically but expects the backend to be running on port 8000.
+
+1. Start Backend:
+   ```bash
+   cd api && uv run fastapi dev src/main.py --port 8000
+   ```
+2. Run Tests (from `e2e` directory):
+   ```bash
+   cd e2e
+   npx playwright test
+   ```
+
+## Release
+
+To release a new version:
+
+1. Go to the "Actions" tab in GitHub.
+2. Select the "Release" workflow.
+3. Click "Run workflow".
+4. Enter the version tag (e.g., `v1.0.0`).
+5. The workflow will build the Docker image and push it to GHCR.
+
+## License
+
+MIT
 

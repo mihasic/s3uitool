@@ -68,6 +68,7 @@ def receive_messages(queue_name: str) -> list[Message]:
             QueueUrl=queue_url,
             MaxNumberOfMessages=10,
             WaitTimeSeconds=0,  # Short polling
+            VisibilityTimeout=0,  # Make messages visible again immediately (peek mode)
             AttributeNames=["All"],
             MessageAttributeNames=["All"],
         )
