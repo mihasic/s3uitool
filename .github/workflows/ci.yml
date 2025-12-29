@@ -9,6 +9,9 @@ on:
 jobs:
   backend-check:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
     steps:
       - uses: actions/checkout@v6
 
@@ -18,20 +21,15 @@ jobs:
           python-version: "3.14"
 
       - name: Install dependencies
-        run: |
-          cd backend
-          uv sync --frozen
+        run: uv sync --frozen
 
       - name: Lint with Ruff
         run: |
-          cd backend
           uv run ruff check .
           uv run ruff format --check .
 
       - name: Type check with Mypy
-        run: |
-          cd backend
-          uv run mypy .
+        run: uv run mypy .
 
   frontend-check:
     runs-on: ubuntu-latest
@@ -40,19 +38,17 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+
       - name: Install dependencies
         run: |
-          cd frontend
           bun install --frozen-lockfile
 
       - name: Lint with Biome
         run: |
-          cd frontend
-          bun biome ci .
+          bun run check
 
       - name: Build
         run: |
-          cd frontend
           bun run build
 
   docker-build:
