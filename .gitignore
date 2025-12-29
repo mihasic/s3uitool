@@ -40,3 +40,4 @@ aws-resources/
 .env
 .env.local
 .env.*.local
+*.log

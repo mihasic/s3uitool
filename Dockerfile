@@ -1,9 +1,9 @@
 # Stage 1: Frontend Builder
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
-COPY frontend/package.json frontend/bun.lock ./
+COPY app/package.json app/bun.lock ./
 RUN bun install --frozen-lockfile
-COPY frontend/ .
+COPY app/ .
 RUN bun run build
 
 # Stage 2: Backend Builder
@@ -11,9 +11,9 @@ FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS backend-builder
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
-COPY backend/pyproject.toml backend/uv.lock ./
+COPY api/pyproject.toml api/uv.lock ./
 RUN uv sync --frozen --no-install-project --no-editable
-COPY backend/ .
+COPY api/ .
 
 # Stage 3: Final Runtime
 FROM python:3.14-slim-bookworm
@@ -27,7 +27,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY --from=frontend-builder /app/dist /app/static
 
 # Copy backend source code
-COPY backend/src /app/src
+COPY api/src /app/src
 
 # Environment variables
 ENV ENABLE_S3=true

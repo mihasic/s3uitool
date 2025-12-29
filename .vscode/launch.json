@@ -12,13 +12,13 @@
         "--port",
         "8000"
       ],
-      "cwd": "${workspaceFolder}/backend",
+      "cwd": "${workspaceFolder}/api",
       "env": {
         "AWS_ENDPOINT_URL": "http://localhost:4566",
         "AWS_DEFAULT_REGION": "eu-west-1",
         "AWS_ACCESS_KEY_ID": "test",
         "AWS_SECRET_ACCESS_KEY": "test",
-        "PYTHONPATH": "${workspaceFolder}/backend/src"
+        "PYTHONPATH": "${workspaceFolder}/api/src"
       },
       "justMyCode": true
     },
@@ -26,7 +26,7 @@
       "name": "Frontend: Dev Server",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/frontend",
+      "cwd": "${workspaceFolder}/app",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
         "run",
@@ -39,7 +39,7 @@
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/frontend/src"
+      "webRoot": "${workspaceFolder}/app/src"
     }
   ],
   "compounds": [
