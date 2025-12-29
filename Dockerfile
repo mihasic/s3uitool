@@ -7,7 +7,7 @@ COPY frontend/ .
 RUN bun run build
 
 # Stage 2: Backend Builder
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS backend-builder
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS backend-builder
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -16,7 +16,7 @@ RUN uv sync --frozen --no-install-project --no-editable
 COPY backend/ .
 
 # Stage 3: Final Runtime
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 WORKDIR /app
 
 # Copy virtual environment from backend builder
