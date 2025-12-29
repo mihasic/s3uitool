@@ -51,9 +51,47 @@ jobs:
         run: |
           bun run build
 
+  e2e-check:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,sqs
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          cd api && uv sync --frozen
+
+      - name: Install Playwright Browsers
+        run: |
+          cd e2e
+          bunx playwright install --with-deps
+
+      - name: Run Playwright tests
+        env:
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: bun run test:e2e
+
   docker-build:
     runs-on: ubuntu-latest
-    needs: [api-check, app-check]
+    needs: [api-check, app-check, e2e-check]
     steps:
       - uses: actions/checkout@v6
 
