@@ -8,8 +8,7 @@ import boto3
 # Add src to path to import config if needed, or just hardcode for the seed script
 # Hardcoding ensures it runs standalone easily without path manipulation issues
 ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4566")
-# Use SEED_REGION or default to us-east-1 to match docker-compose, ignoring system AWS_DEFAULT_REGION
-REGION = os.getenv("SEED_REGION", "us-east-1")
+REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", "test")
 SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 

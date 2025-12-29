@@ -1,6 +1,10 @@
 # S3 & SQS UI for LocalStack
 
 A single-container web application to manage LocalStack S3 and SQS resources.
+S3 browser supports in-place editor with syntax highlighting for known textual formats and image viewer.
+
+![Playwright S3 Screenshots](./assets/pw-bucket.gif)
+![Playwright SQS Screenshots](./assets/pw-queues.gif)
 
 ## Features
 
@@ -9,22 +13,42 @@ A single-container web application to manage LocalStack S3 and SQS resources.
 - **SQS Management**: View queues, send/receive/purge messages.
 - **Single Container**: Frontend and Backend served from one Docker image.
 
-## Prerequisites
+## Usage
+
+Add the following service to your `docker-compose.yml`:
+
+```yaml
+services:
+  s3uitool:
+    image: ghcr.io/mihasic/s3uitool:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566 # Point to your LocalStack service
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+```
+
+### Configuration
+
+| Environment Variable | Default | Description |
+|----------------------|---------|-------------|
+| `AWS_ENDPOINT_URL` | `http://localhost:4566` | URL of the LocalStack or AWS endpoint. |
+| `AWS_DEFAULT_REGION` | `us-east-1` | AWS Region. |
+| `AWS_ACCESS_KEY_ID` | `test` | AWS Access Key ID. |
+| `AWS_SECRET_ACCESS_KEY` | `test` | AWS Secret Access Key. |
+| `ENABLE_S3` | `true` | Enable S3 features. |
+| `ENABLE_SQS` | `true` | Enable SQS features. |
+
+## Development
+
+### Prerequisites
 
 - Docker
 - Docker Compose
 - Bun (for local frontend dev)
 - uv (for local backend dev)
-
-## Quick Start
-
-1. Start the application and LocalStack:
-   ```bash
-   docker-compose up --build
-   ```
-2. Access the UI at [http://localhost:8000](http://localhost:8000).
-
-## Development
 
 ### Project Structure
 
@@ -85,7 +109,7 @@ To release a new version:
 1. Go to the "Actions" tab in GitHub.
 2. Select the "Release" workflow.
 3. Click "Run workflow".
-4. Enter the version tag (e.g., `v1.0.0`).
+4. Enter the version tag (e.g., `0.1.0`).
 5. The workflow will build the Docker image and push it to GHCR.
 
 ## License
