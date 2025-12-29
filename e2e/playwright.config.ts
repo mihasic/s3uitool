@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.APP_PORT || '5173';
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -12,7 +14,7 @@ export default defineConfig({
     timeout: 10 * 1000,
   },
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${port}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -21,12 +23,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
+  webServer: port === '5173' ? {
     command: 'cd .. && bun run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 120 * 1000,
-  },
+  } : undefined,
 });
