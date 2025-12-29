@@ -78,7 +78,7 @@ jobs:
 
       - name: Install Playwright Browsers
         working-directory: e2e
-        run: bunx playwright install --with-deps
+        run: bun run playwright install --with-deps
 
       - name: Run Playwright tests
         working-directory: e2e
@@ -87,7 +87,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
-        run: bunx playwright test
+        run: bun run test
 
   docker-build:
     runs-on: ubuntu-latest
