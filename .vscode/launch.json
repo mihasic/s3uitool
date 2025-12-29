@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Backend: FastAPI",
+      "name": "API: FastAPI",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
@@ -23,7 +23,7 @@
       "justMyCode": true
     },
     {
-      "name": "Frontend: Dev Server",
+      "name": "APP: Dev Server",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/app",
@@ -35,7 +35,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Frontend: Chrome",
+      "name": "APP: Chrome",
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:5173",
@@ -46,9 +46,9 @@
     {
       "name": "Full Stack",
       "configurations": [
-        "Backend: FastAPI",
-        "Frontend: Dev Server",
-        "Frontend: Chrome"
+        "API: FastAPI",
+        "APP: Dev Server",
+        "APP: Chrome"
       ]
     }
   ]

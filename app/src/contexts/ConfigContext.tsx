@@ -25,7 +25,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((err) => {
         console.error("Failed to fetch config:", err);
-        // Fallback to all enabled if fetch fails (e.g. dev mode without backend)
+        // Fallback to all enabled if fetch fails (e.g. dev mode without api)
         setConfig({ s3: true, sqs: true });
         setIsLoading(false);
       });

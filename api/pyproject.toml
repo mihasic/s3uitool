@@ -32,4 +32,5 @@ ignore = []
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+explicit_package_bases = true
 

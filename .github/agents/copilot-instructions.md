@@ -5,7 +5,7 @@ Auto-generated from all feature plans. Last updated: 2025-12-27
 ## Active Technologies
 - S3, SQS (via Localstack for dev/test) (002-production-readiness)
 
-- Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend) (001-s3-sqs-ui)
+- Python 3.14 (api), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (api); React, Tailwindcss, Shadcn (Frontend) (001-s3-sqs-ui)
 
 ## Project Structure
 
@@ -28,10 +28,8 @@ tests/
 Python 3.14 (Backend), TypeScript (Frontend): Follow standard conventions
 
 ## Recent Changes
-- 002-production-readiness: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
-- 002-production-readiness: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
-
-- 001-s3-sqs-ui: Added Python 3.14 (Backend), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (Backend); React, Tailwindcss, Shadcn (Frontend)
+- 002-production-readiness: Added Python 3.14 (api), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (api); React, Tailwindcss, Shadcn (Frontend)
+- 001-s3-sqs-ui: Added Python 3.14 (api), TypeScript (Frontend) + FastAPI, Pydantic, Boto3 (api); React, Tailwindcss, Shadcn (Frontend)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
