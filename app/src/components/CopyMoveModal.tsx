@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,12 +20,16 @@ interface CopyMoveModalProps {
 
 export function CopyMoveModal({ isOpen, onClose, onConfirm, sourceKey, action }: CopyMoveModalProps) {
   const [destinationKey, setDestinationKey] = useState(sourceKey);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevSourceKey, setPrevSourceKey] = useState(sourceKey);
 
-  useEffect(() => {
+  if (isOpen !== prevIsOpen || sourceKey !== prevSourceKey) {
+    setPrevIsOpen(isOpen);
+    setPrevSourceKey(sourceKey);
     if (isOpen) {
       setDestinationKey(sourceKey);
     }
-  }, [isOpen, sourceKey]);
+  }
 
   const handleConfirm = () => {
     onConfirm(destinationKey);
@@ -38,7 +42,7 @@ export function CopyMoveModal({ isOpen, onClose, onConfirm, sourceKey, action }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

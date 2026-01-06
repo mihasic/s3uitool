@@ -46,7 +46,7 @@ export const getLanguageFromFilename = (filename: string): string => {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "js":
-
+    // eslint-disable-next-line no-fallthrough
     case "jsx":
       return "javascript";
     case "ts":

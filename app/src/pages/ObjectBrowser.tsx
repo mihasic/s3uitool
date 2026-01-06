@@ -29,9 +29,27 @@ export function ObjectBrowser() {
   const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
+
+  const fetchData = useCallback(async () => {
+    if (!bucket) return;
+    setLoading(true);
+    setSelectedIndex(-1); // Reset selection on refresh
+
+    try {
+      const data = await api.get<ObjectListResponse>(
+        `s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`,
+      );
+      setData(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [bucket, prefix]);
 
   const items = useMemo(() => {
     if (!data) return [];
@@ -95,10 +113,6 @@ export function ObjectBrowser() {
   );
 
   useEffect(() => {
-    setSelectedIndex(-1);
-  }, []);
-
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return; // Disable if modal is open
 
@@ -144,15 +158,16 @@ export function ObjectBrowser() {
   ]);
 
   useEffect(() => {
+    // Initial fetch
     if (!bucket) return;
 
-    setLoading(true);
+    // Don't set loading true here if it's already true from initial state
     api
       .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [bucket, prefix]);
+  }, [bucket, prefix]); // Re-fetch when bucket or prefix changes
 
   const handleCreateFile = (key: string) => {
     setSelectedFile({
@@ -263,7 +278,11 @@ export function ObjectBrowser() {
         bucket={bucket}
         prefix={prefix}
         onNewFile={() => setNewFileModalOpen(true)}
-        onUpload={() => setUploadModalOpen(true)}
+        onUpload={() => {
+          setDroppedFile(null);
+          setUploadModalOpen(true);
+        }}
+        onRefresh={fetchData}
       />
 
       <ObjectListTable
@@ -275,6 +294,10 @@ export function ObjectBrowser() {
         onCopy={handleCopy}
         onMove={handleMove}
         onDelete={handleDelete}
+        onFileDrop={(file) => {
+          setDroppedFile(file);
+          setUploadModalOpen(true);
+        }}
       />
 
       <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
@@ -312,9 +335,13 @@ export function ObjectBrowser() {
 
       <UploadModal
         isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false);
+          setDroppedFile(null);
+        }}
         onUpload={handleUpload}
         currentPrefix={prefix}
+        initialFile={droppedFile}
       />
 
       <NewFileModal

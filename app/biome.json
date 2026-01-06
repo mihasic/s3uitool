@@ -13,6 +13,10 @@
       "includes": ["src/index.css"],
       "linter": { "enabled": false },
       "formatter": { "enabled": false }
+    },
+    {
+      "includes": ["**/*.d.ts"],
+      "linter": { "enabled": false }
     }
   ],
   "formatter": {

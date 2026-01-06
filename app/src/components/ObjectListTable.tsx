@@ -1,4 +1,5 @@
-import { ArrowRight, Copy, Download, Eye, File, Folder, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +15,7 @@ interface ObjectListTableProps {
   onCopy: (key: string) => void;
   onMove: (key: string) => void;
   onDelete: (key: string) => void;
+  onFileDrop: (file: File) => void;
 }
 
 export function ObjectListTable({
@@ -25,7 +27,10 @@ export function ObjectListTable({
   onCopy,
   onMove,
   onDelete,
+  onFileDrop,
 }: ObjectListTableProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -43,8 +48,42 @@ export function ObjectListTable({
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      onFileDrop(files[0]);
+    }
+  };
+
   return (
-    <div className="rounded-md border">
+    <section
+      aria-label="File upload dropzone"
+      className={`rounded-md border relative min-h-[100px] ${isDragging ? "border-blue-500" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-blue-50/90 rounded-md border-2 border-dashed border-blue-500 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <Upload className="h-12 w-12 mb-3 text-blue-600" />
+          <span className="text-xl font-semibold text-blue-600">Drop file to upload</span>
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -137,6 +176,6 @@ export function ObjectListTable({
           )}
         </TableBody>
       </Table>
-    </div>
+    </section>
   );
 }
