@@ -1,4 +1,4 @@
-import { MessageSquare, Trash2 } from "lucide-react";
+import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -46,7 +46,12 @@ export function QueueList() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">SQS Queues</h1>
+      <div className="flex items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">SQS Queues</h1>
+        <Button variant="outline" size="icon" onClick={fetchQueues} title="Refresh">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
