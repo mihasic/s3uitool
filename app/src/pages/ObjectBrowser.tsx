@@ -29,6 +29,7 @@ export function ObjectBrowser() {
   const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
@@ -266,7 +267,10 @@ export function ObjectBrowser() {
         bucket={bucket}
         prefix={prefix}
         onNewFile={() => setNewFileModalOpen(true)}
-        onUpload={() => setUploadModalOpen(true)}
+        onUpload={() => {
+          setDroppedFile(null);
+          setUploadModalOpen(true);
+        }}
         onRefresh={fetchData}
       />
 
@@ -279,6 +283,10 @@ export function ObjectBrowser() {
         onCopy={handleCopy}
         onMove={handleMove}
         onDelete={handleDelete}
+        onFileDrop={(file) => {
+          setDroppedFile(file);
+          setUploadModalOpen(true);
+        }}
       />
 
       <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
@@ -316,9 +324,13 @@ export function ObjectBrowser() {
 
       <UploadModal
         isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false);
+          setDroppedFile(null);
+        }}
         onUpload={handleUpload}
         currentPrefix={prefix}
+        initialFile={droppedFile}
       />
 
       <NewFileModal

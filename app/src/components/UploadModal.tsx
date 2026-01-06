@@ -1,5 +1,5 @@
 import { Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,22 +10,39 @@ interface UploadModalProps {
   onClose: () => void;
   onUpload: (file: File, key: string) => Promise<void>;
   currentPrefix: string;
+  initialFile?: File | null;
 }
 
-export function UploadModal({ isOpen, onClose, onUpload, currentPrefix }: UploadModalProps) {
+export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialFile }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setFile(null);
-      setKey(currentPrefix);
+      if (initialFile) {
+        setFile(initialFile);
+        setKey(currentPrefix + initialFile.name);
+
+        // Populate the file input with the initial file
+        if (fileInputRef.current) {
+          const dt = new DataTransfer();
+          dt.items.add(initialFile);
+          fileInputRef.current.files = dt.files;
+        }
+      } else {
+        setFile(null);
+        setKey(currentPrefix);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
       setError(null);
       setUploading(false);
     }
-  }, [isOpen, currentPrefix]);
+  }, [isOpen, currentPrefix, initialFile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -86,7 +103,12 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix }: Upload
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="file">File</Label>
-            <Input id="file" type="file" onChange={handleFileChange} disabled={uploading} />
+            {file && (
+              <div className="text-sm font-medium text-green-600">
+                Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+              </div>
+            )}
+            <Input id="file" type="file" ref={fileInputRef} onChange={handleFileChange} disabled={uploading} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="key">Destination Key (Path)</Label>
