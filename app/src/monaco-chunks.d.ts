@@ -4,11 +4,13 @@ declare module "monaco-editor/esm/vs/editor/editor.api" {
 }
 
 declare module "monaco-editor/esm/vs/basic-languages/*" {
+  // biome-ignore lint/suspicious/noExplicitAny: default export in declaration file
   const value: any;
   export default value;
 }
 
 declare module "monaco-editor/esm/vs/language/*" {
+  // biome-ignore lint/suspicious/noExplicitAny: default export in declaration file
   const value: any;
   export default value;
 }

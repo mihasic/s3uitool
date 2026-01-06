@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { AlignLeft, Minimize2, Save } from "lucide-react";
+import type { editor } from "monaco-editor";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,19 +29,22 @@ const formatXml = (xml: string) => {
       if (pad > 0) pad -= 1;
     }
 
-    formatted += "  ".repeat(pad) + node + "\r\n";
+    formatted += `${"  ".repeat(pad) + node}\r\n`;
     if (indent > 0) pad += indent;
   }
   return formatted.trim();
 };
 
 const minifyXml = (xml: string) => {
-  return xml.replace(/>\s+</g, "><").replace(/\s{2,}/g, " ").trim();
+  return xml
+    .replace(/>\s+</g, "><")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 };
 
 export function FileViewer({ content, language = "plaintext", onSave }: FileViewerProps) {
   const [value, setValue] = useState(content);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const isEditable = !!onSave;
 
   const handleEditorDidMount: OnMount = (editor, _monaco) => {
@@ -52,10 +56,12 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
     const model = editorRef.current.getModel();
     if (model) {
       editorRef.current.pushUndoStop();
-      editorRef.current.executeEdits("format", [{
-        range: model.getFullModelRange(),
-        text: newContent
-      }]);
+      editorRef.current.executeEdits("format", [
+        {
+          range: model.getFullModelRange(),
+          text: newContent,
+        },
+      ]);
       editorRef.current.pushUndoStop();
     }
   };
@@ -70,7 +76,7 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
         const currentVal = editorRef.current.getValue();
         const formatted = formatXml(currentVal);
         updateContent(formatted);
-      } catch (e) {
+      } catch (_e) {
         toast.error("Code formatting failed");
       }
     }
@@ -89,7 +95,7 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
       }
 
       if (minified) updateContent(minified);
-    } catch (e) {
+    } catch (_e) {
       toast.error("Invalid content: Cannot minimize");
     }
   };

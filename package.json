@@ -17,10 +17,13 @@
     "test:e2e": "bun run --filter e2e test",
     "test:e2e:ui": "bun run --filter e2e test --ui",
     "test:api": "cd api && cross-env PYTHONPATH=src uv run python -m pytest",
-    "seed": "cd api && uv run python scripts/seed_data.py"
+    "seed": "cd api && uv run python scripts/seed_data.py",
+    "prepare": "husky"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
   }
 }
