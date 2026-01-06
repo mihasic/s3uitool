@@ -26,7 +26,7 @@ export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRe
       <Button variant="outline" size="icon" onClick={onRefresh} title="Refresh">
         <RefreshCw className="h-4 w-4" />
       </Button>
-      <h1 className="text-2xl font-bold flex items-center">
+      <h1 className="text-2xl font-bold flex flex-wrap items-center">
         <Link to={`/s3/${bucket}`} className="hover:underline">
           {bucket}
         </Link>
