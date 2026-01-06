@@ -46,6 +46,7 @@ export const getLanguageFromFilename = (filename: string): string => {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "js":
+
     case "jsx":
       return "javascript";
     case "ts":
@@ -77,6 +78,13 @@ export const getLanguageFromFilename = (filename: string): string => {
       return "sql";
     case "xml":
     case "xaml":
+    case "axml":
+    case "xsd":
+    case "dtd":
+    case "config":
+    case "csproj":
+    case "vbproj":
+    case "plist":
       return "xml";
     case "cs":
       return "csharp";
