@@ -1,5 +1,9 @@
 {
-  "app/**/*.{js,ts,tsx,css,json}": [
+  "app/**/*.{js,ts,tsx}": [
+    "bunx biome check --config-path app/biome.json --write --no-errors-on-unmatched",
+    "bunx eslint --config app/eslint.config.js --fix"
+  ],
+  "app/**/*.{css,json}": [
     "bunx biome check --config-path app/biome.json --write --no-errors-on-unmatched"
   ],
   "api/**/*.py": [

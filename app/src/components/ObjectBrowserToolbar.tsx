@@ -14,7 +14,6 @@ interface ObjectBrowserToolbarProps {
 
 export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRefresh }: ObjectBrowserToolbarProps) {
   const parts = prefix.split("/").filter(Boolean);
-  let accumulatedPath = "";
 
   return (
     <div className="flex items-center gap-4 mb-6">
@@ -30,13 +29,13 @@ export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRe
         <Link to={`/s3/${bucket}`} className="hover:underline">
           {bucket}
         </Link>
-        {parts.map((part) => {
-          accumulatedPath += part + "/";
+        {parts.map((part, index) => {
+          const currentPath = parts.slice(0, index + 1).join("/") + "/";
           return (
-            <Fragment key={accumulatedPath}>
+            <Fragment key={currentPath}>
               <span className="mx-2 text-muted-foreground">/</span>
               <Link
-                to={`/s3/${bucket}?prefix=${encodeURIComponent(accumulatedPath)}`}
+                to={`/s3/${bucket}?prefix=${encodeURIComponent(currentPath)}`}
                 className="hover:underline"
               >
                 {part}
