@@ -19,4 +19,15 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          jsonWorker: [`monaco-editor/esm/vs/language/json/json.worker`],
+          editorWorker: [`monaco-editor/esm/vs/editor/editor.worker`],
+          vendor: [`react`, `react-dom`],
+        },
+      },
+    },
+  },
 });

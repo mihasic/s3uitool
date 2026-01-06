@@ -1,10 +1,28 @@
 import { loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
+// Import only the editor core
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+
+// Workers
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
-import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
-import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+
+// Basic Languages (Monarch Syntax Highlighting)
+import "monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution";
+import "monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution";
+import "monaco-editor/esm/vs/basic-languages/python/python.contribution";
+import "monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution";
+import "monaco-editor/esm/vs/basic-languages/shell/shell.contribution";
+import "monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution";
+import "monaco-editor/esm/vs/basic-languages/xml/xml.contribution";
+import "monaco-editor/esm/vs/basic-languages/sql/sql.contribution";
+import "monaco-editor/esm/vs/basic-languages/css/css.contribution";
+import "monaco-editor/esm/vs/basic-languages/scss/scss.contribution";
+import "monaco-editor/esm/vs/basic-languages/html/html.contribution";
+
+// Rich Languages (Workers)
+// Only needed for advanced features like validation/formatting/autocomplete
+import "monaco-editor/esm/vs/language/json/monaco.contribution";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
@@ -16,15 +34,7 @@ self.MonacoEnvironment = {
     if (label === "json") {
       return new jsonWorker();
     }
-    if (label === "css" || label === "scss" || label === "less") {
-      return new cssWorker();
-    }
-    if (label === "html" || label === "handlebars" || label === "razor") {
-      return new htmlWorker();
-    }
-    if (label === "typescript" || label === "javascript") {
-      return new tsWorker();
-    }
+    // All other languages use the basic editor worker or no worker
     return new editorWorker();
   },
 };
