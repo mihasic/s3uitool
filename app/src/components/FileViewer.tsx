@@ -131,6 +131,8 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
             scrollBeyondLastLine: false,
             formatOnPaste: true,
             formatOnType: true,
+            tabSize: 2,
+            insertSpaces: true,
           }}
         />
       </div>
