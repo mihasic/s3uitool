@@ -96,7 +96,7 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialF
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
         </DialogHeader>

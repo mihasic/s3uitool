@@ -32,7 +32,7 @@ export function SendMessageModal({ isOpen, onClose, onSend, queueName }: SendMes
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>Send Message</DialogTitle>
           <DialogDescription>
