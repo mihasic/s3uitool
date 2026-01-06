@@ -33,6 +33,16 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
 
+  const fetchData = useCallback(() => {
+    if (!bucket) return;
+    setLoading(true);
+    api
+      .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
+      .then(setData)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [bucket, prefix]);
+
   const items = useMemo(() => {
     if (!data) return [];
     return [
@@ -144,15 +154,8 @@ export function ObjectBrowser() {
   ]);
 
   useEffect(() => {
-    if (!bucket) return;
-
-    setLoading(true);
-    api
-      .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-      .then(setData)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [bucket, prefix]);
+    fetchData();
+  }, [fetchData]);
 
   const handleCreateFile = (key: string) => {
     setSelectedFile({
@@ -264,6 +267,7 @@ export function ObjectBrowser() {
         prefix={prefix}
         onNewFile={() => setNewFileModalOpen(true)}
         onUpload={() => setUploadModalOpen(true)}
+        onRefresh={fetchData}
       />
 
       <ObjectListTable
