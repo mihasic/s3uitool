@@ -1,0 +1,14 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+bunx lint-staged
+
+echo "Running Type Checks..."
+
+# Frontend
+echo "Frontend (TSC)..."
+(cd app && bunx tsc -b)
+
+# Backend
+echo "Backend (Mypy)..."
+(cd api && uv run mypy .)
