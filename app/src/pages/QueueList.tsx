@@ -17,18 +17,26 @@ export function QueueList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchQueues = useCallback(() => {
-    setLoading(true);
+  const fetchQueues = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<Queue[]>("sqs/queues");
+      setQueues(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch
     api
       .get<Queue[]>("sqs/queues")
       .then(setQueues)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    fetchQueues();
-  }, [fetchQueues]);
 
   const handlePurge = async (queueName: string) => {
     if (!confirm(`Are you sure you want to purge queue ${queueName}? This will delete all messages.`)) return;

@@ -34,14 +34,21 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     if (!bucket) return;
     setLoading(true);
-    api
-      .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-      .then(setData)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    setSelectedIndex(-1); // Reset selection on refresh
+
+    try {
+      const data = await api.get<ObjectListResponse>(
+        `s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`,
+      );
+      setData(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   }, [bucket, prefix]);
 
   const items = useMemo(() => {
@@ -106,10 +113,6 @@ export function ObjectBrowser() {
   );
 
   useEffect(() => {
-    setSelectedIndex(-1);
-  }, []);
-
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return; // Disable if modal is open
 
@@ -155,8 +158,16 @@ export function ObjectBrowser() {
   ]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Initial fetch
+    if (!bucket) return;
+
+    // Don't set loading true here if it's already true from initial state
+    api
+      .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
+      .then(setData)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [bucket, prefix]); // Re-fetch when bucket or prefix changes
 
   const handleCreateFile = (key: string) => {
     setSelectedFile({

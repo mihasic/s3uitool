@@ -3,3 +3,4 @@ src/index.css
 ./src/index.css
 index.css
 
+**/*.d.ts

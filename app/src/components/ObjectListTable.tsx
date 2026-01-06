@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { ArrowRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,7 +71,8 @@ export function ObjectListTable({
   };
 
   return (
-    <div
+    <section
+      aria-label="File upload dropzone"
       className={`rounded-md border relative min-h-[100px] ${isDragging ? "border-blue-500" : ""}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -175,6 +176,6 @@ export function ObjectListTable({
           )}
         </TableBody>
       </Table>
-    </div>
+    </section>
   );
 }

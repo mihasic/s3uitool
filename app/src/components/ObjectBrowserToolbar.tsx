@@ -1,6 +1,6 @@
 import { ArrowLeft, FilePlus, RefreshCw, Upload } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Fragment } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { getParentPrefix } from "@/lib/file-utils";
 
@@ -30,14 +30,11 @@ export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRe
           {bucket}
         </Link>
         {parts.map((part, index) => {
-          const currentPath = parts.slice(0, index + 1).join("/") + "/";
+          const currentPath = `${parts.slice(0, index + 1).join("/")}/`;
           return (
             <Fragment key={currentPath}>
               <span className="mx-2 text-muted-foreground">/</span>
-              <Link
-                to={`/s3/${bucket}?prefix=${encodeURIComponent(currentPath)}`}
-                className="hover:underline"
-              >
+              <Link to={`/s3/${bucket}?prefix=${encodeURIComponent(currentPath)}`} className="hover:underline">
                 {part}
               </Link>
             </Fragment>

@@ -47,7 +47,7 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const isEditable = !!onSave;
 
-  const handleEditorDidMount: OnMount = (editor, _monaco) => {
+  const handleEditorDidMount: OnMount = (editor) => {
     editorRef.current = editor;
   };
 
@@ -76,7 +76,7 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
         const currentVal = editorRef.current.getValue();
         const formatted = formatXml(currentVal);
         updateContent(formatted);
-      } catch (_e) {
+      } catch {
         toast.error("Code formatting failed");
       }
     }
@@ -95,7 +95,7 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
       }
 
       if (minified) updateContent(minified);
-    } catch (_e) {
+    } catch {
       toast.error("Invalid content: Cannot minimize");
     }
   };

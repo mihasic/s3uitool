@@ -1,8 +1,8 @@
 import { Database, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 
 interface Bucket {
@@ -15,18 +15,26 @@ export function BucketList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBuckets = useCallback(() => {
-    setLoading(true);
+  const fetchBuckets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<Bucket[]>("s3/buckets");
+      setBuckets(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch
     api
       .get<Bucket[]>("s3/buckets")
       .then(setBuckets)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    fetchBuckets();
-  }, [fetchBuckets]);
 
   if (loading) return <div className="p-6">Loading buckets...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;

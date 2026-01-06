@@ -1,5 +1,5 @@
 import { FilePlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,17 @@ interface NewFileModalProps {
 export function NewFileModal({ isOpen, onClose, onCreate, currentPrefix }: NewFileModalProps) {
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevPrefix, setPrevPrefix] = useState(currentPrefix);
 
-  useEffect(() => {
+  if (isOpen !== prevIsOpen || currentPrefix !== prevPrefix) {
+    setPrevIsOpen(isOpen);
+    setPrevPrefix(currentPrefix);
     if (isOpen) {
       setKey(`${currentPrefix}newfile.json`);
       setError(null);
     }
-  }, [isOpen, currentPrefix]);
+  }
 
   const validateKey = (key: string): string | null => {
     if (!key.trim()) return "Key cannot be empty";
