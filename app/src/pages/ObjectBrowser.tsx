@@ -22,7 +22,12 @@ export function ObjectBrowser() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedFile, setSelectedFile] = useState<{ key: string; content: string; isImage?: boolean } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{
+    key: string;
+    content: string;
+    isImage?: boolean;
+    isPdf?: boolean;
+  } | null>(null);
 
   const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
@@ -69,6 +74,16 @@ export function ObjectBrowser() {
           key,
           content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
           isImage: true,
+        });
+        return;
+      }
+
+      if (ext === "pdf") {
+        setSelectedFile({
+          key,
+          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+          isImage: false,
+          isPdf: true,
         });
         return;
       }
@@ -313,6 +328,8 @@ export function ObjectBrowser() {
                   alt={selectedFile.key}
                   className="max-w-full max-h-full object-contain"
                 />
+              ) : selectedFile.isPdf ? (
+                <iframe src={selectedFile.content} title={selectedFile.key} className="w-full h-full border-0" />
               ) : (
                 <FileViewer
                   content={selectedFile.content}
