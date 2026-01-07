@@ -1,4 +1,4 @@
-export const VIEWABLE_EXTENSIONS = new Set([
+export const TEXTUAL_EXTENSIONS = new Set([
   "txt",
   "md",
   "json",

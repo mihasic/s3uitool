@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
+import { DocxViewer } from "@/components/DocxViewer";
 import { FileViewer } from "@/components/FileViewer";
 import { NewFileModal } from "@/components/NewFileModal";
 import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
@@ -22,7 +23,13 @@ export function ObjectBrowser() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedFile, setSelectedFile] = useState<{ key: string; content: string; isImage?: boolean } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{
+    key: string;
+    content: string;
+    isImage?: boolean;
+    isPdf?: boolean;
+    isDocx?: boolean;
+  } | null>(null);
 
   const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
@@ -69,6 +76,27 @@ export function ObjectBrowser() {
           key,
           content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
           isImage: true,
+        });
+        return;
+      }
+
+      if (ext === "pdf") {
+        setSelectedFile({
+          key,
+          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+          isImage: false,
+          isPdf: true,
+        });
+        return;
+      }
+
+      if (ext === "docx") {
+        setSelectedFile({
+          key,
+          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`,
+          isImage: false,
+          isPdf: false,
+          isDocx: true,
         });
         return;
       }
@@ -313,6 +341,10 @@ export function ObjectBrowser() {
                   alt={selectedFile.key}
                   className="max-w-full max-h-full object-contain"
                 />
+              ) : selectedFile.isPdf ? (
+                <iframe src={selectedFile.content} title={selectedFile.key} className="w-full h-full border-0" />
+              ) : selectedFile.isDocx ? (
+                <DocxViewer url={selectedFile.content} />
               ) : (
                 <FileViewer
                   content={selectedFile.content}

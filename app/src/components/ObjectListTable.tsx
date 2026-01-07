@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { IMAGE_EXTENSIONS, VIEWABLE_EXTENSIONS } from "@/lib/file-utils";
+import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
 import type { ObjectListResponse } from "@/types/s3";
 
 interface ObjectListTableProps {
@@ -41,7 +41,7 @@ export function ObjectListTable({
 
   const handleFileClick = (key: string) => {
     const ext = key.split(".").pop()?.toLowerCase();
-    if (ext && (VIEWABLE_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext))) {
+    if (ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx")) {
       onView(key);
     } else {
       onDownload(key);
