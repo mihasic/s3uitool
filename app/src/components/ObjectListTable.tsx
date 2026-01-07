@@ -41,7 +41,7 @@ export function ObjectListTable({
 
   const handleFileClick = (key: string) => {
     const ext = key.split(".").pop()?.toLowerCase();
-    if (ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf")) {
+    if (ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx")) {
       onView(key);
     } else {
       onDownload(key);
