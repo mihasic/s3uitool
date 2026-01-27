@@ -301,10 +301,7 @@ export function ObjectBrowser() {
 
   const handleDownloadFolder = (prefix: string) => {
     if (!bucket) return;
-    window.open(
-      `${API_BASE_URL}/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`,
-      "_blank"
-    );
+    window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`, "_blank");
   };
 
   if (loading && items.length === 0) return <div className="p-6">Loading objects...</div>;

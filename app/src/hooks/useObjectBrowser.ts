@@ -79,10 +79,9 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
       });
 
       // Use batch fetching to retrieve all data in one call
-      const results = await api.post<Record<string, ObjectListResponse>>(
-        `s3/buckets/${bucket}/objects/batch`,
-        { prefixes: Array.from(prefixesToFetch) }
-      );
+      const results = await api.post<Record<string, ObjectListResponse>>(`s3/buckets/${bucket}/objects/batch`, {
+        prefixes: Array.from(prefixesToFetch),
+      });
 
       const rootData = results[prefix];
       if (!rootData) {
@@ -97,7 +96,9 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
           const missing = foldersToExpand.some((p) => !expandedFolders.has(p));
           if (missing) {
             const nextExpanded = new Set(expandedFolders);
-            foldersToExpand.forEach((p) => nextExpanded.add(p));
+            foldersToExpand.forEach((p) => {
+              nextExpanded.add(p);
+            });
             setExpandedFolders(nextExpanded);
             setFolderContent((prev) => ({ ...prev, ...results }));
             return;

@@ -158,48 +158,38 @@ export function ObjectListTable({
                   <TableCell>-</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                    <div className="w-9 h-9" aria-hidden="true" />
-                    {onDownloadFolder && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDownloadFolder(item.key)}
-                        title="Download Folder as Zip"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onCopyFolder && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onCopyFolder(item.key)}
-                        title="Copy Folder"
-                      >
-                       <Copy className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onMoveFolder && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onMoveFolder(item.key)}
-                        title="Move Folder"
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onDeleteFolder && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDeleteFolder(item.key)}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        title="Delete Folder"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                      <div className="w-9 h-9" aria-hidden="true" />
+                      {onDownloadFolder && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDownloadFolder(item.key)}
+                          title="Download Folder as Zip"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onCopyFolder && (
+                        <Button variant="ghost" size="icon" onClick={() => onCopyFolder(item.key)} title="Copy Folder">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onMoveFolder && (
+                        <Button variant="ghost" size="icon" onClick={() => onMoveFolder(item.key)} title="Move Folder">
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onDeleteFolder && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDeleteFolder(item.key)}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          title="Delete Folder"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
