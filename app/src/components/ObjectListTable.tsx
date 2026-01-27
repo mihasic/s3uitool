@@ -158,9 +158,7 @@ export function ObjectListTable({
                   <TableCell>-</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="invisible" disabled aria-hidden="true">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="w-9 h-9" aria-hidden="true" />
                     {onDownloadFolder && (
                       <Button
                         variant="ghost"
