@@ -1,4 +1,7 @@
 import mimetypes
+import tempfile
+import zipfile
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Annotated, Any
@@ -67,6 +70,14 @@ class CopyRequest(BaseModel):
     source_key: str
     destination_bucket: str
     destination_key: str
+    move: bool = False
+
+
+class CopyPrefixRequest(BaseModel):
+    source_bucket: str
+    source_prefix: str
+    destination_bucket: str
+    destination_prefix: str
     move: bool = False
 
 
@@ -246,5 +257,93 @@ def copy_object(request: CopyRequest) -> dict[str, str]:
             return {"message": "Object moved successfully"}
 
         return {"message": "Object copied successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/copy-prefix")
+def copy_prefix(request: CopyPrefixRequest) -> dict[str, str]:
+    s3 = get_s3_client()
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=request.source_bucket, Prefix=request.source_prefix)
+
+        objects_op = []
+        for page in pages:
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    objects_op.append(obj["Key"])
+
+        count = 0
+        for src_key in objects_op:
+            if src_key.startswith(request.source_prefix):
+                dest_key = request.destination_prefix + src_key[len(request.source_prefix) :]
+            else:
+                continue
+
+            copy_source = {"Bucket": request.source_bucket, "Key": src_key}
+            s3.copy(copy_source, request.destination_bucket, dest_key)
+
+            if request.move:
+                s3.delete_object(Bucket=request.source_bucket, Key=src_key)
+
+            count += 1
+
+        action = "moved" if request.move else "copied"
+        return {"message": f"Successfully {action} {count} objects"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/buckets/{bucket}/download-prefix")
+def download_prefix(bucket: str, prefix: str) -> StreamingResponse:
+    s3 = get_s3_client()
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+        t = tempfile.TemporaryFile()
+        with zipfile.ZipFile(t, "w", zipfile.ZIP_DEFLATED) as zf:
+            for page in pages:
+                if "Contents" in page:
+                    for obj in page["Contents"]:
+                        key = obj["Key"]
+                        if key.endswith("/"):
+                            continue
+
+                        try:
+                            s3_obj = s3.get_object(Bucket=bucket, Key=key)
+                            file_content = s3_obj["Body"].read()
+
+                            arcname = key[len(prefix) :] if key.startswith(prefix) else key
+                            if arcname.startswith("/"):
+                                arcname = arcname[1:]
+                            if not arcname:
+                                arcname = key.split("/")[-1]
+
+                            zf.writestr(arcname, file_content)
+                        except Exception as e:
+                            print(f"Error zipping {key}: {e}")
+                            # Continue to next file?
+                            continue
+
+        t.seek(0)
+
+        def iterfile() -> Iterator[bytes]:
+            try:
+                while chunk := t.read(65536):
+                    yield chunk
+            finally:
+                t.close()
+
+        filename = prefix.rstrip("/").split("/")[-1] + ".zip"
+        if not filename or filename == ".zip":
+            filename = "download.zip"
+
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

@@ -30,6 +30,7 @@ export function ObjectBrowser() {
   const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
   const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
+  const [copyMoveIsFolder, setCopyMoveIsFolder] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
@@ -234,31 +235,61 @@ export function ObjectBrowser() {
   const handleCopy = (key: string) => {
     setCopyMoveSourceKey(key);
     setCopyMoveAction("copy");
+    setCopyMoveIsFolder(false);
     setCopyMoveModalOpen(true);
   };
 
   const handleMove = (key: string) => {
     setCopyMoveSourceKey(key);
     setCopyMoveAction("move");
+    setCopyMoveIsFolder(false);
+    setCopyMoveModalOpen(true);
+  };
+
+  const handleCopyFolder = (prefix: string) => {
+    setCopyMoveSourceKey(prefix);
+    setCopyMoveAction("copy");
+    setCopyMoveIsFolder(true);
+    setCopyMoveModalOpen(true);
+  };
+
+  const handleMoveFolder = (prefix: string) => {
+    setCopyMoveSourceKey(prefix);
+    setCopyMoveAction("move");
+    setCopyMoveIsFolder(true);
     setCopyMoveModalOpen(true);
   };
 
   const handleCopyMoveConfirm = async (destinationKey: string) => {
     if (!bucket) return;
     try {
-      await api.post(`s3/copy`, {
-        source_bucket: bucket,
-        source_key: copyMoveSourceKey,
-        destination_bucket: bucket,
-        destination_key: destinationKey,
-        move: copyMoveAction === "move",
-      });
+      if (copyMoveIsFolder) {
+        // Ensure destination folder ends with /
+        const dest = destinationKey.endsWith("/") ? destinationKey : `${destinationKey}/`;
+
+        await api.post("s3/copy-prefix", {
+          source_bucket: bucket,
+          source_prefix: copyMoveSourceKey,
+          destination_bucket: bucket,
+          destination_prefix: dest,
+          move: copyMoveAction === "move",
+        });
+      } else {
+        await api.post("s3/copy", {
+          source_bucket: bucket,
+          source_key: copyMoveSourceKey,
+          destination_bucket: bucket,
+          destination_key: destinationKey,
+          move: copyMoveAction === "move",
+        });
+      }
 
       refresh();
-      toast.success(`File ${copyMoveAction === "copy" ? "copied" : "moved"} successfully`);
+      const type = copyMoveIsFolder ? "Folder" : "File";
+      toast.success(`${type} ${copyMoveAction === "copy" ? "copied" : "moved"} successfully`);
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to ${copyMoveAction} file`);
+      toast.error(`Failed to ${copyMoveAction} ${copyMoveIsFolder ? "folder" : "file"}`);
     }
   };
 
@@ -266,6 +297,14 @@ export function ObjectBrowser() {
     if (!bucket) return;
     // Direct download link
     window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`, "_blank");
+  };
+
+  const handleDownloadFolder = (prefix: string) => {
+    if (!bucket) return;
+    window.open(
+      `${API_BASE_URL}/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`,
+      "_blank"
+    );
   };
 
   if (loading && items.length === 0) return <div className="p-6">Loading objects...</div>;
@@ -297,6 +336,9 @@ export function ObjectBrowser() {
         onMove={handleMove}
         onDelete={handleDelete}
         onDeleteFolder={handleDeleteFolder}
+        onCopyFolder={handleCopyFolder}
+        onMoveFolder={handleMoveFolder}
+        onDownloadFolder={handleDownloadFolder}
         onToggleFolder={toggleFolder}
         onFileDrop={(file) => {
           setDroppedFile(file);
