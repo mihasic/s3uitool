@@ -15,6 +15,7 @@ interface ObjectListTableProps {
   onCopy: (key: string) => void;
   onMove: (key: string) => void;
   onDelete: (key: string) => void;
+  onDeleteFolder?: (prefix: string) => void;
   onFileDrop: (file: File) => void;
 }
 
@@ -27,6 +28,7 @@ export function ObjectListTable({
   onCopy,
   onMove,
   onDelete,
+  onDeleteFolder,
   onFileDrop,
 }: ObjectListTableProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -115,7 +117,19 @@ export function ObjectListTable({
                 <TableCell>-</TableCell>
                 <TableCell>-</TableCell>
                 <TableCell>-</TableCell>
-                <TableCell />
+                <TableCell>
+                  {onDeleteFolder && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeleteFolder(p.Prefix)}
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                      title="Delete Folder"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             );
           })}
@@ -158,7 +172,7 @@ export function ObjectListTable({
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(obj.Key)}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

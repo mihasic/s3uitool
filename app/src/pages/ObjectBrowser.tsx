@@ -140,6 +140,28 @@ export function ObjectBrowser() {
     [bucket, prefix],
   );
 
+  const handleDeleteFolder = useCallback(
+    async (folderPrefix: string) => {
+      if (!bucket || !confirm(`Are you sure you want to delete folder ${folderPrefix} and all its contents?`)) return;
+      try {
+        await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix });
+
+        toast.success("Folder deleted successfully");
+        // Refresh list
+        setLoading(true);
+        api
+          .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
+          .then(setData)
+          .catch((err) => setError(err.message))
+          .finally(() => setLoading(false));
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete folder");
+      }
+    },
+    [bucket, prefix],
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return; // Disable if modal is open
@@ -164,8 +186,9 @@ export function ObjectBrowser() {
           const item = items[selectedIndex];
           if (item.type === "file") {
             handleDelete(item.Key);
+          } else if (item.type === "folder") {
+            handleDeleteFolder(item.Prefix);
           }
-          // TODO: Handle folder delete if implemented
         }
       }
     };
@@ -182,6 +205,7 @@ export function ObjectBrowser() {
     bucket,
     navigate,
     handleDelete,
+    handleDeleteFolder,
     handleView,
   ]);
 
@@ -322,6 +346,7 @@ export function ObjectBrowser() {
         onCopy={handleCopy}
         onMove={handleMove}
         onDelete={handleDelete}
+        onDeleteFolder={handleDeleteFolder}
         onFileDrop={(file) => {
           setDroppedFile(file);
           setUploadModalOpen(true);
