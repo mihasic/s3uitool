@@ -30,6 +30,22 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
 ```
 
+### Running with Local AWS Credentials
+
+If you want to run the container using your local AWS CLI credentials (including SSO), copy the content of the `scripts/` directory (including `docker-compose.yml`) to your local machine and run:
+
+**Linux / macOS:**
+```bash
+./start.sh
+```
+
+**Windows:**
+```powershell
+.\start.ps1
+```
+
+These scripts automatically export your current AWS session credentials and pass them to the container.
+
 ### Configuration
 
 | Environment Variable | Default | Description |
@@ -49,6 +65,17 @@ services:
 - Docker Compose
 - Bun (for local frontend dev)
 - uv (for local backend dev)
+
+### Local Configuration (.env)
+
+Create a `.env` file in the project root to configure the connection to LocalStack for development:
+
+```dotenv
+AWS_ENDPOINT_URL=http://localhost:4566
+AWS_DEFAULT_REGION=us-east-1
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+```
 
 ### Project Structure
 

@@ -2,6 +2,8 @@ import { ArrowLeft, FilePlus, RefreshCw, Upload } from "lucide-react";
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { getParentPrefix } from "@/lib/file-utils";
 
 interface ObjectBrowserToolbarProps {
@@ -10,9 +12,19 @@ interface ObjectBrowserToolbarProps {
   onNewFile: () => void;
   onUpload: () => void;
   onRefresh: () => void;
+  autoExpand: boolean;
+  onToggleAutoExpand: (checked: boolean) => void;
 }
 
-export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRefresh }: ObjectBrowserToolbarProps) {
+export function ObjectBrowserToolbar({
+  bucket,
+  prefix,
+  onNewFile,
+  onUpload,
+  onRefresh,
+  autoExpand,
+  onToggleAutoExpand,
+}: ObjectBrowserToolbarProps) {
   const parts = prefix.split("/").filter(Boolean);
 
   return (
@@ -41,6 +53,10 @@ export function ObjectBrowserToolbar({ bucket, prefix, onNewFile, onUpload, onRe
           );
         })}
       </h1>
+      <div className="flex items-center space-x-2 ml-4">
+        <Switch id="auto-expand" checked={autoExpand} onCheckedChange={onToggleAutoExpand} />
+        <Label htmlFor="auto-expand">Auto-expand</Label>
+      </div>
       <div className="ml-auto flex gap-2">
         <Button onClick={onNewFile}>
           <FilePlus className="mr-2 h-4 w-4" />

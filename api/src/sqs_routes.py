@@ -10,13 +10,17 @@ router = APIRouter(prefix="/sqs", tags=["sqs"])
 
 
 def get_sqs_client() -> Any:
-    return boto3.client(
-        "sqs",
-        endpoint_url=settings.aws_endpoint_url,
-        region_name=settings.aws_default_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
+    kwargs = {}
+    if settings.aws_endpoint_url:
+        kwargs["endpoint_url"] = settings.aws_endpoint_url
+    if settings.aws_default_region:
+        kwargs["region_name"] = settings.aws_default_region
+    if settings.aws_access_key_id:
+        kwargs["aws_access_key_id"] = settings.aws_access_key_id
+    if settings.aws_secret_access_key:
+        kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+
+    return boto3.client("sqs", **kwargs)
 
 
 class Queue(BaseModel):

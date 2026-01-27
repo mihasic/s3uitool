@@ -1,4 +1,8 @@
 import mimetypes
+import tempfile
+import zipfile
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -15,13 +19,17 @@ router = APIRouter(prefix="/s3", tags=["s3"])
 
 
 def get_s3_client() -> Any:
-    return boto3.client(
-        "s3",
-        endpoint_url=settings.aws_endpoint_url,
-        region_name=settings.aws_default_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
+    kwargs = {}
+    if settings.aws_endpoint_url:
+        kwargs["endpoint_url"] = settings.aws_endpoint_url
+    if settings.aws_default_region:
+        kwargs["region_name"] = settings.aws_default_region
+    if settings.aws_access_key_id:
+        kwargs["aws_access_key_id"] = settings.aws_access_key_id
+    if settings.aws_secret_access_key:
+        kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+
+    return boto3.client("s3", **kwargs)
 
 
 class Bucket(BaseModel):
@@ -57,11 +65,23 @@ class DeletePrefixRequest(BaseModel):
     prefix: str
 
 
+class BatchPrefixRequest(BaseModel):
+    prefixes: list[str]
+
+
 class CopyRequest(BaseModel):
     source_bucket: str
     source_key: str
     destination_bucket: str
     destination_key: str
+    move: bool = False
+
+
+class CopyPrefixRequest(BaseModel):
+    source_bucket: str
+    source_prefix: str
+    destination_bucket: str
+    destination_prefix: str
     move: bool = False
 
 
@@ -75,6 +95,31 @@ def list_buckets() -> list[Bucket]:
 @router.get("/buckets/{bucket}/objects", response_model=ObjectList)
 def list_objects(bucket: str, prefix: str = "") -> dict[str, Any]:
     s3 = get_s3_client()
+    return _fetch_objects(s3, bucket, prefix)
+
+
+@router.post("/buckets/{bucket}/objects/batch", response_model=dict[str, ObjectList])
+def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, Any]:
+    s3 = get_s3_client()
+    results = {}
+
+    # Use ThreadPoolExecutor to fetch in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(_fetch_objects, s3, bucket, p): p for p in request.prefixes}
+        for future in futures:
+            prefix = futures[future]
+            try:
+                results[prefix] = future.result()
+            except Exception as e:
+                # Log error or return empty?
+                # For now returning empty result to avoid breaking the whole batch
+                print(f"Error fetching prefix {prefix}: {e}")
+                results[prefix] = {"Objects": [], "CommonPrefixes": [], "Prefix": prefix}
+
+    return results
+
+
+def _fetch_objects(s3: Any, bucket: str, prefix: str) -> dict[str, Any]:
     try:
         response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
 
@@ -216,5 +261,93 @@ def copy_object(request: CopyRequest) -> dict[str, str]:
             return {"message": "Object moved successfully"}
 
         return {"message": "Object copied successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/copy-prefix")
+def copy_prefix(request: CopyPrefixRequest) -> dict[str, str]:
+    s3 = get_s3_client()
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=request.source_bucket, Prefix=request.source_prefix)
+
+        objects_op = []
+        for page in pages:
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    objects_op.append(obj["Key"])
+
+        count = 0
+        for src_key in objects_op:
+            if src_key.startswith(request.source_prefix):
+                dest_key = request.destination_prefix + src_key[len(request.source_prefix) :]
+            else:
+                continue
+
+            copy_source = {"Bucket": request.source_bucket, "Key": src_key}
+            s3.copy(copy_source, request.destination_bucket, dest_key)
+
+            if request.move:
+                s3.delete_object(Bucket=request.source_bucket, Key=src_key)
+
+            count += 1
+
+        action = "moved" if request.move else "copied"
+        return {"message": f"Successfully {action} {count} objects"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/buckets/{bucket}/download-prefix")
+def download_prefix(bucket: str, prefix: str) -> StreamingResponse:
+    s3 = get_s3_client()
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+        t = tempfile.TemporaryFile()
+        with zipfile.ZipFile(t, "w", zipfile.ZIP_DEFLATED) as zf:
+            for page in pages:
+                if "Contents" in page:
+                    for obj in page["Contents"]:
+                        key = obj["Key"]
+                        if key.endswith("/"):
+                            continue
+
+                        try:
+                            s3_obj = s3.get_object(Bucket=bucket, Key=key)
+                            file_content = s3_obj["Body"].read()
+
+                            arcname = key[len(prefix) :] if key.startswith(prefix) else key
+                            if arcname.startswith("/"):
+                                arcname = arcname[1:]
+                            if not arcname:
+                                arcname = key.split("/")[-1]
+
+                            zf.writestr(arcname, file_content)
+                        except Exception as e:
+                            print(f"Error zipping {key}: {e}")
+                            # Continue to next file?
+                            continue
+
+        t.seek(0)
+
+        def iterfile() -> Iterator[bytes]:
+            try:
+                while chunk := t.read(65536):
+                    yield chunk
+            finally:
+                t.close()
+
+        filename = prefix.rstrip("/").split("/")[-1] + ".zip"
+        if not filename or filename == ".zip":
+            filename = "download.zip"
+
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
