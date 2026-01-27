@@ -59,9 +59,13 @@ export function ObjectListTable({
     return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
   };
 
+  const isPreviewAvailable = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    return !!(ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx"));
+  };
+
   const handleFileClick = (key: string) => {
-    const ext = key.split(".").pop()?.toLowerCase();
-    if (ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx")) {
+    if (isPreviewAvailable(key)) {
       onView(key);
     } else {
       onDownload(key);
@@ -223,7 +227,13 @@ export function ObjectListTable({
                 <TableCell className="font-mono text-xs">{item.etag?.replace(/"/g, "") || "-"}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => onView(item.key)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onView(item.key)}
+                      disabled={!isPreviewAvailable(item.key)}
+                      title={isPreviewAvailable(item.key) ? "Preview" : "Preview not available"}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => onDownload(item.key)}>
