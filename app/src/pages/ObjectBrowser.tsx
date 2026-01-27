@@ -1,27 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
-import { DocxViewer } from "@/components/DocxViewer";
-import { FileViewer } from "@/components/FileViewer";
+import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { NewFileModal } from "@/components/NewFileModal";
 import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
 import { ObjectListTable } from "@/components/ObjectListTable";
 import { UploadModal } from "@/components/UploadModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { api } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
-import { getLanguageFromFilename, IMAGE_EXTENSIONS } from "@/lib/file-utils";
-import type { ObjectListResponse } from "@/types/s3";
+import { IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
 export function ObjectBrowser() {
   const { bucket } = useParams<{ bucket: string }>();
   const [searchParams] = useSearchParams();
   const prefix = searchParams.get("prefix") || "";
 
-  const [data, setData] = useState<ObjectListResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { items, loading, error, autoExpand, setAutoExpand, refresh, toggleFolder } = useObjectBrowser(bucket, prefix);
 
   const [selectedFile, setSelectedFile] = useState<{
     key: string;
@@ -41,30 +37,12 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
 
-  const fetchData = useCallback(async () => {
-    if (!bucket) return;
-    setLoading(true);
-    setSelectedIndex(-1); // Reset selection on refresh
-
-    try {
-      const data = await api.get<ObjectListResponse>(
-        `s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`,
-      );
-      setData(data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [bucket, prefix]);
-
-  const items = useMemo(() => {
-    if (!data) return [];
-    return [
-      ...data.CommonPrefixes.map((p) => ({ type: "folder" as const, ...p })),
-      ...data.Objects.map((o) => ({ type: "file" as const, ...o })),
-    ];
-  }, [data]);
+  // Reset selection when items change (navigation, expansion, refresh)
+  const [prevItems, setPrevItems] = useState(items);
+  if (items !== prevItems) {
+    setPrevItems(items);
+    setSelectedIndex(-1);
+  }
 
   const handleView = useCallback(
     async (key: string) => {
@@ -123,21 +101,14 @@ export function ObjectBrowser() {
       if (!bucket || !confirm(`Are you sure you want to delete ${key}?`)) return;
       try {
         await api.delete(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`);
-
         toast.success("File deleted successfully");
-        // Refresh list
-        setLoading(true);
-        api
-          .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-          .then(setData)
-          .catch((err) => setError(err.message))
-          .finally(() => setLoading(false));
+        refresh();
       } catch (err) {
         console.error(err);
         toast.error("Failed to delete file");
       }
     },
-    [bucket, prefix],
+    [bucket, refresh],
   );
 
   const handleDeleteFolder = useCallback(
@@ -145,26 +116,19 @@ export function ObjectBrowser() {
       if (!bucket || !confirm(`Are you sure you want to delete folder ${folderPrefix} and all its contents?`)) return;
       try {
         await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix });
-
         toast.success("Folder deleted successfully");
-        // Refresh list
-        setLoading(true);
-        api
-          .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-          .then(setData)
-          .catch((err) => setError(err.message))
-          .finally(() => setLoading(false));
+        refresh();
       } catch (err) {
         console.error(err);
         toast.error("Failed to delete folder");
       }
     },
-    [bucket, prefix],
+    [bucket, refresh],
   );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return; // Disable if modal is open
+      if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -176,18 +140,32 @@ export function ObjectBrowser() {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           const item = items[selectedIndex];
           if (item.type === "folder") {
-            navigate(`/s3/${bucket}?prefix=${encodeURIComponent(item.Prefix)}`);
+            navigate(`/s3/${bucket}?prefix=${encodeURIComponent(item.key)}`);
           } else {
-            handleView(item.Key);
+            handleView(item.key);
+          }
+        }
+      } else if (e.key === "ArrowRight") {
+        if (selectedIndex >= 0 && selectedIndex < items.length) {
+          const item = items[selectedIndex];
+          if (item.type === "folder" && !item.isExpanded) {
+            toggleFolder(item.key);
+          }
+        }
+      } else if (e.key === "ArrowLeft") {
+        if (selectedIndex >= 0 && selectedIndex < items.length) {
+          const item = items[selectedIndex];
+          if (item.type === "folder" && item.isExpanded) {
+            toggleFolder(item.key);
           }
         }
       } else if (e.key === "Delete") {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           const item = items[selectedIndex];
           if (item.type === "file") {
-            handleDelete(item.Key);
+            handleDelete(item.key);
           } else if (item.type === "folder") {
-            handleDeleteFolder(item.Prefix);
+            handleDeleteFolder(item.key);
           }
         }
       }
@@ -207,19 +185,8 @@ export function ObjectBrowser() {
     handleDelete,
     handleDeleteFolder,
     handleView,
+    toggleFolder,
   ]);
-
-  useEffect(() => {
-    // Initial fetch
-    if (!bucket) return;
-
-    // Don't set loading true here if it's already true from initial state
-    api
-      .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-      .then(setData)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [bucket, prefix]); // Re-fetch when bucket or prefix changes
 
   const handleCreateFile = (key: string) => {
     setSelectedFile({
@@ -240,13 +207,7 @@ export function ObjectBrowser() {
 
       toast.success("File saved successfully");
       setSelectedFile(null);
-      // Refresh list
-      setLoading(true);
-      api
-        .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-        .then(setData)
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
+      refresh();
     } catch (err) {
       console.error(err);
       toast.error("Failed to save file");
@@ -262,13 +223,7 @@ export function ObjectBrowser() {
       await api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`, formData);
 
       toast.success("File uploaded successfully");
-      // Refresh list
-      setLoading(true);
-      api
-        .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-        .then(setData)
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
+      refresh();
     } catch (err) {
       console.error(err);
       toast.error("Failed to upload file");
@@ -299,14 +254,7 @@ export function ObjectBrowser() {
         move: copyMoveAction === "move",
       });
 
-      // Refresh list
-      setLoading(true);
-      api
-        .get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`)
-        .then(setData)
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-
+      refresh();
       toast.success(`File ${copyMoveAction === "copy" ? "copied" : "moved"} successfully`);
     } catch (err) {
       console.error(err);
@@ -320,9 +268,9 @@ export function ObjectBrowser() {
     window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`, "_blank");
   };
 
-  if (loading) return <div className="p-6">Loading objects...</div>;
+  if (loading && items.length === 0) return <div className="p-6">Loading objects...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
-  if (!data || !bucket) return null;
+  if (!bucket) return null;
 
   return (
     <div className="p-6">
@@ -334,11 +282,13 @@ export function ObjectBrowser() {
           setDroppedFile(null);
           setUploadModalOpen(true);
         }}
-        onRefresh={fetchData}
+        onRefresh={refresh}
+        autoExpand={autoExpand}
+        onToggleAutoExpand={setAutoExpand}
       />
 
       <ObjectListTable
-        data={data}
+        items={items}
         bucket={bucket}
         selectedIndex={selectedIndex}
         onView={handleView}
@@ -347,40 +297,19 @@ export function ObjectBrowser() {
         onMove={handleMove}
         onDelete={handleDelete}
         onDeleteFolder={handleDeleteFolder}
+        onToggleFolder={toggleFolder}
         onFileDrop={(file) => {
           setDroppedFile(file);
           setUploadModalOpen(true);
         }}
       />
 
-      <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{selectedFile?.key}</DialogTitle>
-          </DialogHeader>
-          {selectedFile && (
-            <div className="flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-md overflow-hidden">
-              {selectedFile.isImage ? (
-                <img
-                  src={selectedFile.content}
-                  alt={selectedFile.key}
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : selectedFile.isPdf ? (
-                <iframe src={selectedFile.content} title={selectedFile.key} className="w-full h-full border-0" />
-              ) : selectedFile.isDocx ? (
-                <DocxViewer url={selectedFile.content} />
-              ) : (
-                <FileViewer
-                  content={selectedFile.content}
-                  onSave={handleSave}
-                  language={getLanguageFromFilename(selectedFile.key)}
-                />
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <FilePreviewDialog
+        file={selectedFile}
+        isOpen={!!selectedFile}
+        onClose={() => setSelectedFile(null)}
+        onSave={handleSave}
+      />
 
       <CopyMoveModal
         isOpen={copyMoveModalOpen}

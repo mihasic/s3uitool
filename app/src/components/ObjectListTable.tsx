@@ -1,13 +1,23 @@
-import { ArrowRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
-import type { ObjectListResponse } from "@/types/s3";
+
+export interface TableItem {
+  key: string;
+  type: "file" | "folder";
+  name: string;
+  depth: number;
+  size?: number;
+  lastModified?: string;
+  etag?: string;
+  isExpanded?: boolean;
+}
 
 interface ObjectListTableProps {
-  data: ObjectListResponse;
+  items: TableItem[];
   bucket: string;
   selectedIndex: number;
   onView: (key: string) => void;
@@ -16,11 +26,12 @@ interface ObjectListTableProps {
   onMove: (key: string) => void;
   onDelete: (key: string) => void;
   onDeleteFolder?: (prefix: string) => void;
+  onToggleFolder: (prefix: string) => void;
   onFileDrop: (file: File) => void;
 }
 
 export function ObjectListTable({
-  data,
+  items,
   bucket,
   selectedIndex,
   onView,
@@ -29,6 +40,7 @@ export function ObjectListTable({
   onMove,
   onDelete,
   onDeleteFolder,
+  onToggleFolder,
   onFileDrop,
 }: ObjectListTableProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -98,81 +110,98 @@ export function ObjectListTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.CommonPrefixes.map((p, index) => {
-            const folderName = p.Prefix.split("/").filter(Boolean).pop() || "";
+          {items.map((item, index) => {
             const isSelected = index === selectedIndex;
-            return (
-              <TableRow key={p.Prefix} className={isSelected ? "bg-muted" : ""}>
-                <TableCell>
-                  <Folder className="h-4 w-4 text-blue-500" />
-                </TableCell>
-                <TableCell>
-                  <Link
-                    to={`/s3/${bucket}?prefix=${encodeURIComponent(p.Prefix)}`}
-                    className="font-medium hover:underline text-blue-600"
-                  >
-                    {folderName}/
-                  </Link>
-                </TableCell>
-                <TableCell>-</TableCell>
-                <TableCell>-</TableCell>
-                <TableCell>-</TableCell>
-                <TableCell>
-                  {onDeleteFolder && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeleteFolder(p.Prefix)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                      title="Delete Folder"
+
+            if (item.type === "folder") {
+              return (
+                <TableRow key={item.key} className={isSelected ? "bg-muted" : ""}>
+                  <TableCell>
+                    <div className="flex items-center" style={{ paddingLeft: `${item.depth * 20}px` }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onToggleFolder(item.key);
+                        }}
+                        className="mr-1 p-0.5 hover:bg-gray-200 rounded"
+                      >
+                        {item.isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-500" />
+                        )}
+                      </button>
+                      <Folder className="h-4 w-4 text-blue-500 ml-1" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to={`/s3/${bucket}?prefix=${encodeURIComponent(item.key)}`}
+                      className="font-medium hover:underline text-blue-600"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-          {data.Objects.map((obj, index) => {
-            const fileName = obj.Key.split("/").pop() || obj.Key;
-            const globalIndex = data.CommonPrefixes.length + index;
-            const isSelected = globalIndex === selectedIndex;
+                      {item.name}/
+                    </Link>
+                  </TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>
+                    {onDeleteFolder && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDeleteFolder(item.key)}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        title="Delete Folder"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            }
+
             return (
-              <TableRow key={obj.Key} className={isSelected ? "bg-muted" : ""}>
+              <TableRow key={item.key} className={isSelected ? "bg-muted" : ""}>
                 <TableCell>
-                  <File className="h-4 w-4 text-gray-500" />
+                  <div className="flex items-center" style={{ paddingLeft: `${item.depth * 20}px` }}>
+                    <div className="w-6 mr-1" /> {/* Spacer for tree alignment */}
+                    <File className="h-4 w-4 text-gray-500 ml-1" />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <button
                     type="button"
-                    onClick={() => handleFileClick(obj.Key)}
+                    onClick={() => handleFileClick(item.key)}
                     className="font-medium hover:underline text-left"
                   >
-                    {fileName}
+                    {item.name}
                   </button>
                 </TableCell>
-                <TableCell>{formatSize(obj.Size)}</TableCell>
-                <TableCell>{new Date(obj.LastModified).toLocaleString()}</TableCell>
-                <TableCell className="font-mono text-xs">{obj.ETag.replace(/"/g, "")}</TableCell>
+                <TableCell>{item.size !== undefined ? formatSize(item.size) : "-"}</TableCell>
+                <TableCell>{item.lastModified ? new Date(item.lastModified).toLocaleString() : "-"}</TableCell>
+                <TableCell className="font-mono text-xs">{item.etag?.replace(/"/g, "") || "-"}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => onView(obj.Key)}>
+                    <Button variant="ghost" size="icon" onClick={() => onView(item.key)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDownload(obj.Key)}>
+                    <Button variant="ghost" size="icon" onClick={() => onDownload(item.key)}>
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onCopy(obj.Key)} title="Copy">
+                    <Button variant="ghost" size="icon" onClick={() => onCopy(item.key)} title="Copy">
                       <Copy className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onMove(obj.Key)} title="Move">
+                    <Button variant="ghost" size="icon" onClick={() => onMove(item.key)} title="Move">
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onDelete(obj.Key)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => onDelete(item.key)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -181,7 +210,7 @@ export function ObjectListTable({
               </TableRow>
             );
           })}
-          {data.Objects.length === 0 && data.CommonPrefixes.length === 0 && (
+          {items.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                 No objects found.
