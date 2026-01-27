@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TableItem } from "@/components/ObjectListTable";
 import { api } from "@/lib/api";
 import type { ObjectListResponse } from "@/types/s3";
@@ -7,6 +7,8 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   const [autoExpand, setAutoExpand] = useState(() => {
     return localStorage.getItem("autoExpand") === "true";
   });
+
+  const shouldCheckAutoExpand = useRef(true);
 
   // State for expanded folders
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
@@ -37,7 +39,15 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reset on prefix change
   useEffect(() => {
     setExpandedFolders(new Set());
+    shouldCheckAutoExpand.current = true;
   }, [prefix]);
+
+  // Trigger auto-expand check when switch is turned on
+  useEffect(() => {
+    if (autoExpand) {
+      shouldCheckAutoExpand.current = true;
+    }
+  }, [autoExpand]);
 
   // Save autoExpand
   useEffect(() => {
@@ -80,13 +90,14 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
       }
 
       // Handle Auto-Expand logic:
-      if (autoExpand) {
+      if (autoExpand && shouldCheckAutoExpand.current) {
+        shouldCheckAutoExpand.current = false;
         const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
         if (foldersToExpand.length > 0) {
           const missing = foldersToExpand.some((p) => !expandedFolders.has(p));
           if (missing) {
             const nextExpanded = new Set(expandedFolders);
-            foldersToExpand.forEach((p) => void nextExpanded.add(p));
+            foldersToExpand.forEach((p) => nextExpanded.add(p));
             setExpandedFolders(nextExpanded);
             setFolderContent((prev) => ({ ...prev, ...results }));
             return;
