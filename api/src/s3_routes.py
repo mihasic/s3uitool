@@ -1,4 +1,5 @@
 import mimetypes
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -57,6 +58,10 @@ class DeletePrefixRequest(BaseModel):
     prefix: str
 
 
+class BatchPrefixRequest(BaseModel):
+    prefixes: list[str]
+
+
 class CopyRequest(BaseModel):
     source_bucket: str
     source_key: str
@@ -75,6 +80,31 @@ def list_buckets() -> list[Bucket]:
 @router.get("/buckets/{bucket}/objects", response_model=ObjectList)
 def list_objects(bucket: str, prefix: str = "") -> dict[str, Any]:
     s3 = get_s3_client()
+    return _fetch_objects(s3, bucket, prefix)
+
+
+@router.post("/buckets/{bucket}/objects/batch", response_model=dict[str, ObjectList])
+def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, Any]:
+    s3 = get_s3_client()
+    results = {}
+
+    # Use ThreadPoolExecutor to fetch in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(_fetch_objects, s3, bucket, p): p for p in request.prefixes}
+        for future in futures:
+            prefix = futures[future]
+            try:
+                results[prefix] = future.result()
+            except Exception as e:
+                # Log error or return empty?
+                # For now returning empty result to avoid breaking the whole batch
+                print(f"Error fetching prefix {prefix}: {e}")
+                results[prefix] = {"Objects": [], "CommonPrefixes": [], "Prefix": prefix}
+
+    return results
+
+
+def _fetch_objects(s3: Any, bucket: str, prefix: str) -> dict[str, Any]:
     try:
         response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
 

@@ -58,26 +58,6 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     setLoading(true);
 
     try {
-      // 1. Always fetch the root prefix content first
-      const rootData = await api.get<ObjectListResponse>(
-        `s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`,
-      );
-
-      // Handle Auto-Expand logic:
-      if (autoExpand) {
-        const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
-        if (foldersToExpand.length > 0) {
-          const missing = foldersToExpand.some((p) => !expandedFolders.has(p));
-          if (missing) {
-            const nextExpanded = new Set(expandedFolders);
-            foldersToExpand.forEach((p) => void nextExpanded.add(p));
-            setExpandedFolders(nextExpanded);
-            setFolderContent((prev) => ({ ...prev, [prefix]: rootData }));
-            return;
-          }
-        }
-      }
-
       const prefixesToFetch = new Set<string>();
       prefixesToFetch.add(prefix);
 
@@ -88,20 +68,33 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         }
       });
 
-      const results = await Promise.all(
-        Array.from(prefixesToFetch).map(async (p) => {
-          if (p === prefix && rootData) return { prefix: p, data: rootData };
-
-          const res = await api.get<ObjectListResponse>(`s3/buckets/${bucket}/objects?prefix=${encodeURIComponent(p)}`);
-          return { prefix: p, data: res };
-        }),
+      // Use batch fetching to retrieve all data in one call
+      const results = await api.post<Record<string, ObjectListResponse>>(
+        `s3/buckets/${bucket}/objects/batch`,
+        { prefixes: Array.from(prefixesToFetch) }
       );
 
-      const newContent: Record<string, ObjectListResponse> = {};
-      results.forEach((r) => {
-        newContent[r.prefix] = r.data;
-      });
-      setFolderContent(newContent);
+      const rootData = results[prefix];
+      if (!rootData) {
+        throw new Error("Failed to load root folder");
+      }
+
+      // Handle Auto-Expand logic:
+      if (autoExpand) {
+        const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
+        if (foldersToExpand.length > 0) {
+          const missing = foldersToExpand.some((p) => !expandedFolders.has(p));
+          if (missing) {
+            const nextExpanded = new Set(expandedFolders);
+            foldersToExpand.forEach((p) => void nextExpanded.add(p));
+            setExpandedFolders(nextExpanded);
+            setFolderContent((prev) => ({ ...prev, ...results }));
+            return;
+          }
+        }
+      }
+
+      setFolderContent(results);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
