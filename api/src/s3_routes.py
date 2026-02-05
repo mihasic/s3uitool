@@ -49,6 +49,8 @@ class ObjectList(BaseModel):
     Objects: list[S3Object]
     CommonPrefixes: list[CommonPrefix]
     Prefix: str
+    NextContinuationToken: str | None = None
+    IsTruncated: bool = False
 
 
 class S3ObjectContent(S3Object):
@@ -61,8 +63,17 @@ class DeletePrefixRequest(BaseModel):
     prefix: str
 
 
+class PrefixParams(BaseModel):
+    prefix: str
+    continuation_token: str | None = None
+    max_keys: int = 1000
+    filter_text: str | None = None
+    delimiter: str = "/"
+
+
 class BatchPrefixRequest(BaseModel):
-    prefixes: list[str]
+    prefixes: list[str] = []
+    requests: list[PrefixParams] = []
 
 
 class CopyRequest(BaseModel):
@@ -89,9 +100,24 @@ def list_buckets() -> list[Bucket]:
 
 
 @router.get("/buckets/{bucket}/objects", response_model=ObjectList)
-def list_objects(bucket: str, prefix: str = "") -> dict[str, Any]:
+def list_objects(
+    bucket: str,
+    prefix: str = "",
+    continuation_token: str | None = None,
+    max_keys: int = 1000,
+    filter_text: str | None = None,
+    delimiter: str = "/",
+) -> dict[str, Any]:
     s3 = get_s3_client()
-    return _fetch_objects(s3, bucket, prefix)
+    return fetch_objects(
+        s3,
+        bucket,
+        prefix,
+        continuation_token=continuation_token,
+        max_keys=max_keys,
+        filter_text=filter_text,
+        delimiter=delimiter,
+    )
 
 
 @router.post("/buckets/{bucket}/objects/batch", response_model=dict[str, ObjectList])
@@ -101,7 +127,27 @@ def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, An
 
     # Use ThreadPoolExecutor to fetch in parallel
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(_fetch_objects, s3, bucket, p): p for p in request.prefixes}
+        futures = {}
+
+        # Handle legacy simple prefixes list
+        for p in request.prefixes:
+            futures[executor.submit(fetch_objects, s3, bucket, p)] = p
+
+        # Handle new complex requests
+        for req in request.requests:
+            futures[
+                executor.submit(
+                    fetch_objects,
+                    s3,
+                    bucket,
+                    req.prefix,
+                    req.continuation_token,
+                    req.max_keys,
+                    req.filter_text,
+                    req.delimiter,
+                )
+            ] = req.prefix
+
         for future in futures:
             prefix = futures[future]
             try:
@@ -110,14 +156,40 @@ def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, An
                 # Log error or return empty?
                 # For now returning empty result to avoid breaking the whole batch
                 print(f"Error fetching prefix {prefix}: {e}")
-                results[prefix] = {"Objects": [], "CommonPrefixes": [], "Prefix": prefix}
+                results[prefix] = {
+                    "Objects": [],
+                    "CommonPrefixes": [],
+                    "Prefix": prefix,
+                    "IsTruncated": False,
+                }
 
     return results
 
 
-def _fetch_objects(s3: Any, bucket: str, prefix: str) -> dict[str, Any]:
+def fetch_objects(
+    s3: Any,
+    bucket: str,
+    prefix: str,
+    continuation_token: str | None = None,
+    max_keys: int = 1000,
+    filter_text: str | None = None,
+    delimiter: str = "/",
+) -> dict[str, Any]:
     try:
-        response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
+        s3_prefix = prefix
+        if filter_text:
+            s3_prefix += filter_text
+
+        kwargs = {
+            "Bucket": bucket,
+            "Prefix": s3_prefix,
+            "Delimiter": delimiter,
+            "MaxKeys": max_keys,
+        }
+        if continuation_token:
+            kwargs["ContinuationToken"] = continuation_token
+
+        response = s3.list_objects_v2(**kwargs)
 
         objects = []
         for obj in response.get("Contents", []):
@@ -128,7 +200,13 @@ def _fetch_objects(s3: Any, bucket: str, prefix: str) -> dict[str, Any]:
 
         common_prefixes = [{"Prefix": p["Prefix"]} for p in response.get("CommonPrefixes", [])]
 
-        return {"Objects": objects, "CommonPrefixes": common_prefixes, "Prefix": prefix}
+        return {
+            "Objects": objects,
+            "CommonPrefixes": common_prefixes,
+            "Prefix": prefix,
+            "NextContinuationToken": response.get("NextContinuationToken"),
+            "IsTruncated": response.get("IsTruncated", False),
+        }
     except s3.exceptions.NoSuchBucket as e:
         raise HTTPException(status_code=404, detail="Bucket not found") from e
 

@@ -31,6 +31,9 @@ jobs:
       - name: Type check with Mypy
         run: uv run mypy .
 
+      - name: Audit dependencies
+        run: uv export --format requirements-txt | uvx pip-audit -r /dev/stdin
+
   app-check:
     runs-on: ubuntu-latest
     steps:
@@ -50,6 +53,10 @@ jobs:
       - name: Build
         run: |
           bun run build
+
+      - name: Audit dependencies
+        run: |
+          bun audit
 
   e2e-check:
     runs-on: ubuntu-latest
