@@ -94,7 +94,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         const trimmed = p.endsWith("/") ? p.slice(0, -1) : p;
         const lastSlash = trimmed.lastIndexOf("/");
         if (lastSlash === -1) return "";
-        return trimmed.slice(0, lastSlash) + "/";
+        return `${trimmed.slice(0, lastSlash)}/`;
       };
 
       // 1. Identify reachable prefixes
