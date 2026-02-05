@@ -42,7 +42,6 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     }
   });
 
-
   // Filter and Pagination State
   const [filterText, setFilterText] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
@@ -66,7 +65,6 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     }
   }, [autoExpand]);
 
-
   // Save autoExpand
   useEffect(() => {
     // Only persist, do not trigger fetch
@@ -88,126 +86,169 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastRequestKey = useRef<string>("");
 
-  const fetchData = useCallback(async () => {
-    if (!bucket) return;
+  const fetchData = useCallback(
+    async (force: boolean = false) => {
+      if (!bucket) return;
 
-    // Build the requests object first to check for duplication
-    const prefixesToFetch = new Set<string>();
-    prefixesToFetch.add(prefix);
+      const getParent = (p: string) => {
+        const trimmed = p.endsWith("/") ? p.slice(0, -1) : p;
+        const lastSlash = trimmed.lastIndexOf("/");
+        if (lastSlash === -1) return "";
+        return trimmed.slice(0, lastSlash) + "/";
+      };
 
-    expandedFolders.forEach((p) => {
-    if (p !== prefix && p.startsWith(prefix)) {
-        prefixesToFetch.add(p);
-    }
-    });
+      // 1. Identify reachable prefixes
+      // A prefix is "reachable" if all its ancestors (up to current viewing prefix) are expanded.
+      // Always include the current prefix (root of view).
+      const prefixesToFetch = new Set<string>();
+      prefixesToFetch.add(prefix);
 
-    const requests: PrefixParams[] = Array.from(prefixesToFetch).map((p) => {
-    if (p === prefix) {
-        return {
-        prefix: p,
-        filter_text: filterText || null,
-        continuation_token: pageTokens[currentPage] || null,
-        max_keys: pageSize,
-        };
-    }
-    return { prefix: p };
-    });
+      const isReachable = (p: string) => {
+        if (p === prefix) return true;
 
-    const requestKey = JSON.stringify({ bucket, requests });
-    // If request identical to last one and not loading (or loading same thing), skip?
-    // Be careful: if previous failed, we might want to retry.
-    // For now, simple de-dupe.
-    if (requestKey === lastRequestKey.current && !shouldCheckAutoExpand.current) {
-        // If we are just refreshing the same view, and no auto-expand pending, maybe skip?
-        // But the user might have clicked refresh.
-        // Let's rely on explicit refresh button bypassing this check? 
-        // No, refresh calls fetchData.
-        // We will just update the ref AFTER successful fetch start.
-    }
+        let current = p;
+        // Walk upwards
+        while (current !== prefix && current.length > prefix.length) {
+          const parent = getParent(current);
+          // If we hit the viewing prefix, checking is done and successful
+          if (parent === prefix) return true;
 
-    if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-    }
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+          if (current === "" && prefix !== "") return false;
 
-    setLoading(true);
+          if (!expandedFolders.has(parent)) return false;
 
-    try {
-      lastRequestKey.current = requestKey;
+          current = parent;
+        }
+        return true;
+      };
 
-      // Use batch fetching to retrieve all data in one call
-      // Note: passing signal to fetch would be best, but api helper might not expose it.
-      // We will check signal after await.
-      
-      const results = await api.post<Record<string, ObjectListResponse>>(`s3/buckets/${bucket}/objects/batch`, {
-        requests,
+      expandedFolders.forEach((p) => {
+        if (p !== prefix && p.startsWith(prefix)) {
+          if (isReachable(p)) {
+            prefixesToFetch.add(p);
+          }
+        }
       });
 
-      if (abortController.signal.aborted) {
-         return;
+      const requests: PrefixParams[] = Array.from(prefixesToFetch).map((p) => {
+        if (p === prefix) {
+          return {
+            prefix: p,
+            filter_text: filterText || null,
+            continuation_token: pageTokens[currentPage] || null,
+            max_keys: pageSize,
+          };
+        }
+        return { prefix: p };
+      });
+
+      const requestKey = JSON.stringify({ bucket, requests });
+      // If request identical to last one and not forced, skip.
+      // However, if we are waiting for auto-expand check (and autoExpand is ON),
+      // we must proceed even if request looks same (though usually auto-expand adds prefixes so it wouldn't match).
+      // The main protection here is to stop loops when autoExpand logic is settling or off.
+      if (!force && requestKey === lastRequestKey.current && !(autoExpand && shouldCheckAutoExpand.current)) {
+        return;
       }
 
-      const rootData = results[prefix];
-      if (!rootData) {
-        throw new Error("Failed to load root folder");
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-      
-      // Update tokens if we moved to a new page or first load
-      if (rootData.NextContinuationToken) {
-         setPageTokens((prev) => {
-            if (prev[currentPage + 1] === rootData.NextContinuationToken) {
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      setLoading(true);
+
+      try {
+        lastRequestKey.current = requestKey;
+
+        // Batch requests logic
+        const BATCH_SIZE = 20;
+        const results: Record<string, ObjectListResponse> = {};
+        const requestChunks: PrefixParams[][] = [];
+
+        for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+          requestChunks.push(requests.slice(i, i + BATCH_SIZE));
+        }
+
+        await Promise.all(
+          requestChunks.map(async (chunk) => {
+            if (abortController.signal.aborted) return;
+            const chunkResult = await api.post<Record<string, ObjectListResponse>>(
+              `s3/buckets/${bucket}/objects/batch`,
+              {
+                requests: chunk,
+              },
+              { signal: abortController.signal },
+            );
+            Object.assign(results, chunkResult);
+          }),
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        const rootData = results[prefix];
+        if (!rootData) {
+          throw new Error("Failed to load root folder");
+        }
+
+        // Update tokens if we moved to a new page or first load
+        if (rootData.NextContinuationToken) {
+          const nextToken = rootData.NextContinuationToken;
+          setPageTokens((prev) => {
+            if (prev[currentPage + 1] === nextToken) {
               return prev;
             }
             const newTokens = [...prev];
             // Ensure we don't duplicate or overwrite wrongly if things raced, but simplified:
             // We always store the next token at currentPage + 1
-            newTokens[currentPage + 1] = rootData.NextContinuationToken!;
+            newTokens[currentPage + 1] = nextToken;
             return newTokens;
-         });
-      }
-
-      // Handle Auto-Expand logic:
-      if (autoExpand && shouldCheckAutoExpand.current) {
-        const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
-        if (foldersToExpand.length > 0) {
-          const missing = foldersToExpand.filter((p) => !expandedFolders.has(p));
-          if (missing.length > 0) {
-            const nextExpanded = new Set(expandedFolders);
-            missing.forEach((p) => {
-              nextExpanded.add(p);
-            });
-            // We set the folders to expand, this will trigger another fetch via effect
-            // We set check to false to stop loop in next fetch
-            shouldCheckAutoExpand.current = false;
-            setExpandedFolders(nextExpanded);
-            
-            // We ALSO set the content we have now, so we don't just show loading
-            setFolderContent((prev) => ({ ...prev, ...results }));
-            return;
-          }
+          });
         }
-        // If we reached here, either no folders to expand, or all are expanded.
-        // We can turn off the check.
-        shouldCheckAutoExpand.current = false;
+
+        // Handle Auto-Expand logic:
+        if (autoExpand && shouldCheckAutoExpand.current) {
+          const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
+          if (foldersToExpand.length > 0) {
+            const missing = foldersToExpand.filter((p) => !expandedFolders.has(p));
+            if (missing.length > 0) {
+              const nextExpanded = new Set(expandedFolders);
+              missing.forEach((p) => {
+                nextExpanded.add(p);
+              });
+              // We set the folders to expand, this will trigger another fetch via effect
+              // We set check to false to stop loop in next fetch
+              shouldCheckAutoExpand.current = false;
+              setExpandedFolders(nextExpanded);
+
+              // We ALSO set the content we have now, so we don't just show loading
+              setFolderContent((prev) => ({ ...prev, ...results }));
+              return;
+            }
+          }
+          // If we reached here, either no folders to expand, or all are expanded.
+          // We can turn off the check.
+          shouldCheckAutoExpand.current = false;
+        }
+
+        setFolderContent(results);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        // Also ignore if we aborted manually
+        if (abortController.signal.aborted) return;
+
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
-
-      setFolderContent(results);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      // Also ignore if we aborted manually
-      if (abortController.signal.aborted) return;
-      
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-       if (!abortController.signal.aborted) {
-           setLoading(false);
-       }
-    }
-  }, [bucket, prefix, expandedFolders, autoExpand, filterText, currentPage, pageTokens, pageSize]);
-
-
-
+    },
+    [bucket, prefix, expandedFolders, autoExpand, filterText, currentPage, pageTokens, pageSize],
+  );
 
   // Re-fetch when bucket, prefix or expandedFolders changes
   useEffect(() => {
@@ -304,7 +345,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     error,
     autoExpand,
     setAutoExpand,
-    refresh: fetchData,
+    refresh: () => fetchData(true),
     toggleFolder: handleToggleFolder,
     filterText,
     setFilterText: handleFilterChange,

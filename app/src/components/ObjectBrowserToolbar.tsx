@@ -1,4 +1,4 @@
-import { ArrowLeft, FilePlus, RefreshCw, Upload, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,9 @@ export function ObjectBrowserToolbar({
 
       <div className="flex items-center gap-4 justify-between">
         <div className="flex items-center gap-2 flex-1 max-w-sm">
-          <Label htmlFor="filter" className="sr-only">Filter</Label>
+          <Label htmlFor="filter" className="sr-only">
+            Filter
+          </Label>
           <Input
             id="filter"
             placeholder="Filter files..."
@@ -119,8 +121,9 @@ export function ObjectBrowserToolbar({
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            {generatePaginationItems(currentPage, pageTokens.length).map((item, idx) => (
+            {generatePaginationItems(currentPage, pageTokens.length).map((item, idx) =>
               item === "ellipsis" ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: Ellipsis are safe to index
                 <div key={`ellipsis-${idx}`} className="flex items-center justify-center w-8 h-8">
                   <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -134,8 +137,8 @@ export function ObjectBrowserToolbar({
                 >
                   {item + 1}
                 </Button>
-              )
-            ))}
+              ),
+            )}
 
             <Button
               variant="ghost"
@@ -149,7 +152,9 @@ export function ObjectBrowserToolbar({
           </div>
 
           <div className="flex items-center gap-2 mr-4">
-            <Label htmlFor="page-size" className="whitespace-nowrap text-sm">Rows:</Label>
+            <Label htmlFor="page-size" className="whitespace-nowrap text-sm">
+              Rows:
+            </Label>
             <select
               id="page-size"
               value={pageSize}
