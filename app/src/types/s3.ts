@@ -30,4 +30,3 @@ export interface TableItem {
 }
 
 export type ViewMode = "folder" | "tree" | "flat";
-

@@ -244,16 +244,16 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
       if (!content) return [];
 
       return content.Objects.map((o) => {
-         const fileName = o.Key; // Use full key
-         return {
-           key: o.Key,
-           type: "file",
-           name: fileName,
-           depth: 0,
-           size: o.Size,
-           lastModified: o.LastModified,
-           etag: o.ETag,
-         } as TableItem;
+        const fileName = o.Key; // Use full key
+        return {
+          key: o.Key,
+          type: "file",
+          name: fileName,
+          depth: 0,
+          size: o.Size,
+          lastModified: o.LastModified,
+          etag: o.ETag,
+        } as TableItem;
       });
     }
 
