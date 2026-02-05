@@ -1,46 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TableItem } from "@/components/ObjectListTable";
 import { api } from "@/lib/api";
-import type { ObjectListResponse } from "@/types/s3";
+import type { ObjectListResponse, TableItem, ViewMode } from "@/types/s3";
 
 interface PrefixParams {
   prefix: string;
   continuation_token?: string | null;
   max_keys?: number;
   filter_text?: string | null;
+  delimiter?: string;
 }
 
 export function useObjectBrowser(bucket: string | undefined, prefix: string) {
-  const [autoExpand, setAutoExpand] = useState(() => {
-    return localStorage.getItem("autoExpand") === "true";
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem("viewMode");
+    if (saved === "folder" || saved === "tree" || saved === "flat") {
+      return saved;
+    }
+    return "folder";
   });
 
   const shouldCheckAutoExpand = useRef(true);
 
   // State for expanded folders
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem("expandedFolders");
-      if (!saved) return new Set();
-
-      const parsed: string[] = JSON.parse(saved);
-      const filtered = new Set<string>();
-
-      parsed.forEach((p) => {
-        // Only keep folders that are direct children of the current prefix
-        if (p.startsWith(prefix) && p !== prefix) {
-          const relative = p.slice(prefix.length);
-          const parts = relative.split("/").filter(Boolean);
-          if (parts.length === 1) {
-            filtered.add(p);
-          }
-        }
-      });
-      return filtered;
-    } catch {
-      return new Set();
-    }
-  });
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   // Filter and Pagination State
   const [filterText, setFilterText] = useState("");
@@ -60,21 +42,16 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
 
   // Trigger auto-expand check when switch is turned on
   useEffect(() => {
-    if (autoExpand) {
+    if (viewMode === "tree") {
       shouldCheckAutoExpand.current = true;
     }
-  }, [autoExpand]);
+  }, [viewMode]);
 
-  // Save autoExpand
+  // Save viewMode
   useEffect(() => {
     // Only persist, do not trigger fetch
-    localStorage.setItem("autoExpand", String(autoExpand));
-  }, [autoExpand]);
-
-  // Save expanded folders to local storage
-  useEffect(() => {
-    localStorage.setItem("expandedFolders", JSON.stringify(Array.from(expandedFolders)));
-  }, [expandedFolders]);
+    localStorage.setItem("viewMode", viewMode);
+  }, [viewMode]);
 
   const [folderContent, setFolderContent] = useState<Record<string, ObjectListResponse>>({});
   const [loading, setLoading] = useState(true);
@@ -122,13 +99,15 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         return true;
       };
 
-      expandedFolders.forEach((p) => {
-        if (p !== prefix && p.startsWith(prefix)) {
-          if (isReachable(p)) {
-            prefixesToFetch.add(p);
+      if (viewMode !== "flat") {
+        expandedFolders.forEach((p) => {
+          if (p !== prefix && p.startsWith(prefix)) {
+            if (isReachable(p)) {
+              prefixesToFetch.add(p);
+            }
           }
-        }
-      });
+        });
+      }
 
       const requests: PrefixParams[] = Array.from(prefixesToFetch).map((p) => {
         if (p === prefix) {
@@ -137,6 +116,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
             filter_text: filterText || null,
             continuation_token: pageTokens[currentPage] || null,
             max_keys: pageSize,
+            delimiter: viewMode === "flat" ? "" : "/",
           };
         }
         return { prefix: p };
@@ -147,7 +127,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
       // However, if we are waiting for auto-expand check (and autoExpand is ON),
       // we must proceed even if request looks same (though usually auto-expand adds prefixes so it wouldn't match).
       // The main protection here is to stop loops when autoExpand logic is settling or off.
-      if (!force && requestKey === lastRequestKey.current && !(autoExpand && shouldCheckAutoExpand.current)) {
+      if (!force && requestKey === lastRequestKey.current && !(viewMode === "tree" && shouldCheckAutoExpand.current)) {
         return;
       }
 
@@ -210,7 +190,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         }
 
         // Handle Auto-Expand logic:
-        if (autoExpand && shouldCheckAutoExpand.current) {
+        if (viewMode === "tree" && shouldCheckAutoExpand.current) {
           const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
           if (foldersToExpand.length > 0) {
             const missing = foldersToExpand.filter((p) => !expandedFolders.has(p));
@@ -247,7 +227,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         }
       }
     },
-    [bucket, prefix, expandedFolders, autoExpand, filterText, currentPage, pageTokens, pageSize],
+    [bucket, prefix, expandedFolders, viewMode, filterText, currentPage, pageTokens, pageSize],
   );
 
   // Re-fetch when bucket, prefix or expandedFolders changes
@@ -256,6 +236,27 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   }, [fetchData]);
 
   const items = useMemo(() => {
+    if (viewMode === "flat") {
+      // In flat mode, we only have the root content (prefix)
+      // And it contains all objects recursively (no CommonPrefixes if API works as expected with delimiter='')
+      // Wait, if delimiter is empty, S3 return NO CommonPrefixes (unless some objects have / in them but it's treated as part of key)
+      const content = folderContent[prefix];
+      if (!content) return [];
+
+      return content.Objects.map((o) => {
+         const fileName = o.Key; // Use full key
+         return {
+           key: o.Key,
+           type: "file",
+           name: fileName,
+           depth: 0,
+           size: o.Size,
+           lastModified: o.LastModified,
+           etag: o.ETag,
+         } as TableItem;
+      });
+    }
+
     const flatten = (currentPrefix: string, depth: number): TableItem[] => {
       const content = folderContent[currentPrefix];
       if (!content) return [];
@@ -297,7 +298,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     };
 
     return flatten(prefix, 0);
-  }, [folderContent, expandedFolders, prefix]);
+  }, [folderContent, expandedFolders, prefix, viewMode]);
 
   const handleToggleFolder = (folderPrefix: string) => {
     setExpandedFolders((prev) => {
@@ -316,7 +317,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     setCurrentPage(0);
     setPageTokens([null]);
     setExpandedFolders(new Set());
-    if (autoExpand) {
+    if (viewMode === "tree") {
       shouldCheckAutoExpand.current = true;
     }
   };
@@ -324,7 +325,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   const handlePageChange = (p: number) => {
     setCurrentPage(p);
     setExpandedFolders(new Set());
-    if (autoExpand) {
+    if (viewMode === "tree") {
       shouldCheckAutoExpand.current = true;
     }
   };
@@ -334,7 +335,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     setCurrentPage(0);
     setPageTokens([null]);
     setExpandedFolders(new Set());
-    if (autoExpand) {
+    if (viewMode === "tree") {
       shouldCheckAutoExpand.current = true;
     }
   };
@@ -343,8 +344,8 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     items,
     loading,
     error,
-    autoExpand,
-    setAutoExpand,
+    viewMode,
+    setViewMode,
     refresh: () => fetchData(true),
     toggleFolder: handleToggleFolder,
     filterText,

@@ -1,20 +1,10 @@
 import { ArrowRight, ChevronDown, ChevronRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
-
-export interface TableItem {
-  key: string;
-  type: "file" | "folder";
-  name: string;
-  depth: number;
-  size?: number;
-  lastModified?: string;
-  etag?: string;
-  isExpanded?: boolean;
-}
+import type { TableItem, ViewMode } from "@/types/s3";
 
 interface ObjectListTableProps {
   items: TableItem[];
@@ -31,6 +21,7 @@ interface ObjectListTableProps {
   onDownloadFolder?: (prefix: string) => void;
   onToggleFolder: (prefix: string) => void;
   onFileDrop: (file: File) => void;
+  viewMode: ViewMode;
 }
 
 export function ObjectListTable({
@@ -48,6 +39,7 @@ export function ObjectListTable({
   onDownloadFolder,
   onToggleFolder,
   onFileDrop,
+  viewMode,
 }: ObjectListTableProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -205,13 +197,49 @@ export function ObjectListTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <button
-                    type="button"
-                    onClick={() => handleFileClick(item.key)}
-                    className="font-medium hover:underline text-left"
-                  >
-                    {item.name}
-                  </button>
+                  {viewMode === "flat" ? (
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(() => {
+                        const parts = item.key.split("/");
+                        const fileName = parts.pop();
+                        const pathParts = parts;
+
+                        return (
+                          <>
+                            {pathParts.map((part, idx) => {
+                              const partPrefix = `${parts.slice(0, idx + 1).join("/")}/`;
+                              return (
+                                <Fragment key={partPrefix}>
+                                  <Link
+                                    to={`/s3/${bucket}?prefix=${encodeURIComponent(partPrefix)}`}
+                                    className="text-muted-foreground hover:underline text-sm"
+                                  >
+                                    {part}
+                                  </Link>
+                                  <span className="text-muted-foreground text-sm">/</span>
+                                </Fragment>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={() => handleFileClick(item.key)}
+                              className="font-medium hover:underline text-left"
+                            >
+                              {fileName}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleFileClick(item.key)}
+                      className="font-medium hover:underline text-left"
+                    >
+                      {item.name}
+                    </button>
+                  )}
                 </TableCell>
                 <TableCell>{item.size !== undefined ? formatSize(item.size) : "-"}</TableCell>
                 <TableCell>{item.lastModified ? new Date(item.lastModified).toLocaleString() : "-"}</TableCell>

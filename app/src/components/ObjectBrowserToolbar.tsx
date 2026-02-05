@@ -1,11 +1,11 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus, Folder, FolderTree, List, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { getParentPrefix } from "@/lib/file-utils";
+import type { ViewMode } from "@/types/s3";
 
 interface ObjectBrowserToolbarProps {
   bucket: string;
@@ -13,8 +13,8 @@ interface ObjectBrowserToolbarProps {
   onNewFile: () => void;
   onUpload: () => void;
   onRefresh: () => void;
-  autoExpand: boolean;
-  onToggleAutoExpand: (checked: boolean) => void;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
   filterText: string;
   onFilterChange: (val: string) => void;
   currentPage: number;
@@ -54,8 +54,8 @@ export function ObjectBrowserToolbar({
   onNewFile,
   onUpload,
   onRefresh,
-  autoExpand,
-  onToggleAutoExpand,
+  viewMode,
+  setViewMode,
   filterText,
   onFilterChange,
   currentPage,
@@ -69,12 +69,12 @@ export function ObjectBrowserToolbar({
   return (
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
+        <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" asChild>
           <Link to={prefix ? `/s3/${bucket}?prefix=${getParentPrefix(prefix)}` : "/s3"}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <Button variant="outline" size="icon" onClick={onRefresh} title="Refresh">
+        <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" onClick={onRefresh} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold flex flex-wrap items-center">
@@ -169,9 +169,34 @@ export function ObjectBrowserToolbar({
             </select>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch id="auto-expand" checked={autoExpand} onCheckedChange={onToggleAutoExpand} />
-            <Label htmlFor="auto-expand">Auto-expand</Label>
+          <div className="flex items-center space-x-1 border rounded-md p-1">
+            <Button
+              variant={viewMode === "folder" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("folder")}
+              title="Folder View"
+            >
+              <Folder className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "tree" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("tree")}
+              title="Tree View (Auto-expand)"
+            >
+              <FolderTree className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "flat" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("flat")}
+              title="Flat View"
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
           <Button onClick={onNewFile} size="sm" variant="outline">
             <FilePlus className="h-4 w-4 mr-2" />

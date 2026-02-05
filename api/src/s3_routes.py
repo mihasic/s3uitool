@@ -68,6 +68,7 @@ class PrefixParams(BaseModel):
     continuation_token: str | None = None
     max_keys: int = 1000
     filter_text: str | None = None
+    delimiter: str = "/"
 
 
 class BatchPrefixRequest(BaseModel):
@@ -105,15 +106,17 @@ def list_objects(
     continuation_token: str | None = None,
     max_keys: int = 1000,
     filter_text: str | None = None,
+    delimiter: str = "/",
 ) -> dict[str, Any]:
     s3 = get_s3_client()
-    return _fetch_objects(
+    return fetch_objects(
         s3,
         bucket,
         prefix,
         continuation_token=continuation_token,
         max_keys=max_keys,
         filter_text=filter_text,
+        delimiter=delimiter,
     )
 
 
@@ -128,19 +131,20 @@ def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, An
 
         # Handle legacy simple prefixes list
         for p in request.prefixes:
-            futures[executor.submit(_fetch_objects, s3, bucket, p)] = p
+            futures[executor.submit(fetch_objects, s3, bucket, p)] = p
 
         # Handle new complex requests
         for req in request.requests:
             futures[
                 executor.submit(
-                    _fetch_objects,
+                    fetch_objects,
                     s3,
                     bucket,
                     req.prefix,
                     req.continuation_token,
                     req.max_keys,
                     req.filter_text,
+                    req.delimiter,
                 )
             ] = req.prefix
 
@@ -162,13 +166,14 @@ def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, An
     return results
 
 
-def _fetch_objects(
+def fetch_objects(
     s3: Any,
     bucket: str,
     prefix: str,
     continuation_token: str | None = None,
     max_keys: int = 1000,
     filter_text: str | None = None,
+    delimiter: str = "/",
 ) -> dict[str, Any]:
     try:
         s3_prefix = prefix
@@ -178,7 +183,7 @@ def _fetch_objects(
         kwargs = {
             "Bucket": bucket,
             "Prefix": s3_prefix,
-            "Delimiter": "/",
+            "Delimiter": delimiter,
             "MaxKeys": max_keys,
         }
         if continuation_token:

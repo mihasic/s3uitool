@@ -21,8 +21,8 @@ export function ObjectBrowser() {
     items,
     loading,
     error,
-    autoExpand,
-    setAutoExpand,
+    viewMode,
+    setViewMode,
     refresh,
     toggleFolder,
     filterText,
@@ -334,8 +334,8 @@ export function ObjectBrowser() {
           setUploadModalOpen(true);
         }}
         onRefresh={refresh}
-        autoExpand={autoExpand}
-        onToggleAutoExpand={setAutoExpand}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
         filterText={filterText}
         onFilterChange={setFilterText}
         currentPage={currentPage}
@@ -363,6 +363,7 @@ export function ObjectBrowser() {
           setDroppedFile(file);
           setUploadModalOpen(true);
         }}
+        viewMode={viewMode}
       />
 
       <FilePreviewDialog
