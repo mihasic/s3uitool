@@ -24,10 +24,6 @@ def get_s3_client() -> Any:
         kwargs["endpoint_url"] = settings.aws_endpoint_url
     if settings.aws_default_region:
         kwargs["region_name"] = settings.aws_default_region
-    if settings.aws_access_key_id:
-        kwargs["aws_access_key_id"] = settings.aws_access_key_id
-    if settings.aws_secret_access_key:
-        kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
 
     return boto3.client("s3", **kwargs)
 

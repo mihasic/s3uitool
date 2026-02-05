@@ -31,29 +31,20 @@ if [ -z "$REGION" ]; then
 fi
 
 echo "Fetching credentials..."
-CRED_VALUES=$(aws configure export-credentials $PROFILE_ARG --output text --query "[AccessKeyId, SecretAccessKey, SessionToken]")
+eval "$(aws configure export-credentials $PROFILE_ARG --format env)"
 
 if [ $? -ne 0 ]; then
     echo "Error fetching credentials. Ensure you are logged in."
     exit 1
 fi
 
-# Read space-separated values
-read -r ACCESS_KEY SECRET_KEY SESSION_TOKEN <<< "$CRED_VALUES"
-
 # Check validity
-if [ -z "$ACCESS_KEY" ] || [ "$ACCESS_KEY" == "None" ]; then
+if [ -z "$AWS_ACCESS_KEY_ID" ]; then
     echo "Error: Failed to obtain AccessKeyId."
     exit 1
 fi
 
-# Export variables for docker-compose
-export AWS_ACCESS_KEY_ID="$ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$SECRET_KEY"
-
-if [ ! -z "$SESSION_TOKEN" ] && [ "$SESSION_TOKEN" != "None" ]; then
-    export AWS_SESSION_TOKEN="$SESSION_TOKEN"
-fi
+export AWS_DEFAULT_REGION="$REGION"
 
 export AWS_DEFAULT_REGION="$REGION"
 
