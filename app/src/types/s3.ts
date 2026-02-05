@@ -14,4 +14,6 @@ export interface ObjectListResponse {
   Objects: S3Object[];
   CommonPrefixes: CommonPrefix[];
   Prefix: string;
+  NextContinuationToken?: string;
+  IsTruncated?: boolean;
 }

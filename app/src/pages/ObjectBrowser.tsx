@@ -17,7 +17,22 @@ export function ObjectBrowser() {
   const [searchParams] = useSearchParams();
   const prefix = searchParams.get("prefix") || "";
 
-  const { items, loading, error, autoExpand, setAutoExpand, refresh, toggleFolder } = useObjectBrowser(bucket, prefix);
+  const {
+    items,
+    loading,
+    error,
+    autoExpand,
+    setAutoExpand,
+    refresh,
+    toggleFolder,
+    filterText,
+    setFilterText,
+    currentPage,
+    setCurrentPage,
+    pageTokens,
+    pageSize,
+    setPageSize,
+  } = useObjectBrowser(bucket, prefix);
 
   const [selectedFile, setSelectedFile] = useState<{
     key: string;
@@ -321,6 +336,13 @@ export function ObjectBrowser() {
         onRefresh={refresh}
         autoExpand={autoExpand}
         onToggleAutoExpand={setAutoExpand}
+        filterText={filterText}
+        onFilterChange={setFilterText}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        pageTokens={pageTokens}
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
       />
 
       <ObjectListTable
