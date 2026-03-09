@@ -39,5 +39,9 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
+  },
+  "overrides": {
+    "monaco-editor>dompurify": "^3.3.2",
+    "vite>rollup": "^4.59.0"
   }
 }
