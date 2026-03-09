@@ -1,10 +1,16 @@
 {
   "name": "s3uitool",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2"
+  },
+  "overrides": {
+    "monaco-editor>dompurify": "^3.3.2",
+    "vite>rollup": "^4.59.0"
+  },
   "private": true,
-  "workspaces": [
-    "app",
-    "e2e"
-  ],
   "scripts": {
     "dev:localstack": "cross-env AWS_ENDPOINT_URL=http://localhost:4566 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
     "dev:rustfs": "cross-env AWS_ENDPOINT_URL=http://localhost:9000 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
@@ -25,10 +31,8 @@
     "seed": "cd api && uv run python scripts/seed_data.py",
     "prepare": "husky"
   },
-  "devDependencies": {
-    "concurrently": "^9.2.1",
-    "cross-env": "^10.1.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7"
-  }
+  "workspaces": [
+    "app",
+    "e2e"
+  ]
 }

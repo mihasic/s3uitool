@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 import boto3
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -20,8 +21,9 @@ router = APIRouter(prefix="/s3", tags=["s3"])
 
 def get_s3_client() -> Any:
     kwargs = {}
-    if settings.aws_endpoint_url:
-        kwargs["endpoint_url"] = settings.aws_endpoint_url
+    endpoint_url = settings.s3_endpoint_url
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url
     if settings.aws_default_region:
         kwargs["region_name"] = settings.aws_default_region
 
@@ -95,8 +97,17 @@ class CopyPrefixRequest(BaseModel):
 @router.get("/buckets", response_model=list[Bucket])
 def list_buckets() -> list[Bucket]:
     s3 = get_s3_client()
-    response = s3.list_buckets()
-    return [Bucket(**b) for b in response.get("Buckets", [])]
+    try:
+        response = s3.list_buckets()
+        return [Bucket(**b) for b in response.get("Buckets", [])]
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "Unknown")
+        if error_code in {"InvalidAccessKeyId", "SignatureDoesNotMatch"}:
+            raise HTTPException(
+                status_code=502,
+                detail="S3 authentication failed. Check endpoint and credentials.",
+            ) from e
+        raise HTTPException(status_code=502, detail=f"S3 request failed: {error_code}") from e
 
 
 @router.get("/buckets/{bucket}/objects", response_model=ObjectList)

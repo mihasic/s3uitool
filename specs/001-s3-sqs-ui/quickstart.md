@@ -4,22 +4,25 @@
 *   Docker
 *   Docker Compose
 
-## Running with LocalStack
+## Running with RustFS and ElasticMQ
 
 1.  Create a `docker-compose.yml`:
 
 ```yaml
 version: '3.8'
 services:
-  localstack:
-    image: localstack/localstack
+  rustfs:
+    image: rustfs/rustfs:latest
     ports:
-      - "4566:4566"
+      - "9000:9000"
     environment:
-      - SERVICES=s3,sqs
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - RUSTFS_ACCESS_KEY=test
+      - RUSTFS_SECRET_KEY=test
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    ports:
+      - "9324:9324"
 
   s3-sqs-ui:
     image: s3-sqs-ui:latest
@@ -27,12 +30,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_S3_ENDPOINT_URL=http://rustfs:9000
+      - AWS_SQS_ENDPOINT_URL=http://elasticmq:9324
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
     depends_on:
-      - localstack
+      - rustfs
+      - elasticmq
 ```
 
 2.  Build and run:
