@@ -7,16 +7,17 @@ import boto3
 
 # Add src to path to import config if needed, or just hardcode for the seed script
 # Hardcoding ensures it runs standalone easily without path manipulation issues
-ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4566")
+S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", os.getenv("AWS_ENDPOINT_URL", "http://localhost:9000"))
+SQS_ENDPOINT_URL = os.getenv("AWS_SQS_ENDPOINT_URL", os.getenv("AWS_ENDPOINT_URL", "http://localhost:9324"))
 REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", "test")
 SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 
 
-def get_client(service: str) -> Any:
+def get_client(service: str, endpoint_url: str) -> Any:
     return boto3.client(
         service,
-        endpoint_url=ENDPOINT_URL,
+        endpoint_url=endpoint_url,
         region_name=REGION,
         aws_access_key_id=ACCESS_KEY,
         aws_secret_access_key=SECRET_KEY,
@@ -24,7 +25,7 @@ def get_client(service: str) -> Any:
 
 
 def seed_s3() -> None:
-    s3 = get_client("s3")
+    s3 = get_client("s3", S3_ENDPOINT_URL)
     buckets = ["documents", "images", "logs"]
 
     print("--- Seeding S3 ---")
@@ -109,7 +110,7 @@ def seed_s3() -> None:
 
 
 def seed_sqs() -> None:
-    sqs = get_client("sqs")
+    sqs = get_client("sqs", SQS_ENDPOINT_URL)
     queues = ["orders-queue", "notifications-dlq", "email-jobs"]
 
     print("\n--- Seeding SQS ---")
@@ -137,7 +138,8 @@ def seed_sqs() -> None:
 
 
 if __name__ == "__main__":
-    print(f"Seeding data to {ENDPOINT_URL}...")
+    print(f"Seeding S3 data to {S3_ENDPOINT_URL}...")
+    print(f"Seeding SQS data to {SQS_ENDPOINT_URL}...")
     try:
         seed_s3()
         seed_sqs()

@@ -93,7 +93,7 @@ As a developer, I want to view SQS queues and messages so that I can debug async
 2.  **Efficiency**: Docker image size is optimized (target < 500MB uncompressed).
 3.  **Usability**: A user can navigate from bucket list to editing a specific file using only the keyboard.
 4.  **Reliability**: Recursive delete correctly removes all nested objects in a "folder".
-5.  **Compatibility**: Works seamlessly with `localstack/localstack` and `gresau/localstack-persist`.
+5.  **Compatibility**: Works seamlessly with `rustfs/rustfs` and `softwaremill/elasticmq-native`.
 
 ## Assumptions
 

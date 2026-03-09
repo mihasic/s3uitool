@@ -11,8 +11,9 @@ router = APIRouter(prefix="/sqs", tags=["sqs"])
 
 def get_sqs_client() -> Any:
     kwargs = {}
-    if settings.aws_endpoint_url:
-        kwargs["endpoint_url"] = settings.aws_endpoint_url
+    endpoint_url = settings.sqs_endpoint_url
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url
     if settings.aws_default_region:
         kwargs["region_name"] = settings.aws_default_region
 

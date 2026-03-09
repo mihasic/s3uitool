@@ -8,8 +8,9 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-# Ensure we use Localstack for tests
-os.environ["AWS_ENDPOINT_URL"] = "http://localhost:4566"
+# Ensure we use local S3/SQS emulators for tests
+os.environ["AWS_S3_ENDPOINT_URL"] = "http://localhost:9000"
+os.environ["AWS_SQS_ENDPOINT_URL"] = "http://localhost:9324"
 os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
 os.environ["AWS_ACCESS_KEY_ID"] = "test"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
@@ -19,7 +20,7 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
 def s3_client() -> Generator[Any]:
     client = boto3.client(
         "s3",
-        endpoint_url=os.environ["AWS_ENDPOINT_URL"],
+        endpoint_url=os.environ.get("AWS_S3_ENDPOINT_URL") or os.environ.get("AWS_ENDPOINT_URL"),
         region_name=os.environ["AWS_DEFAULT_REGION"],
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
@@ -31,7 +32,7 @@ def s3_client() -> Generator[Any]:
 def sqs_client() -> Generator[Any]:
     client = boto3.client(
         "sqs",
-        endpoint_url=os.environ["AWS_ENDPOINT_URL"],
+        endpoint_url=os.environ.get("AWS_SQS_ENDPOINT_URL") or os.environ.get("AWS_ENDPOINT_URL"),
         region_name=os.environ["AWS_DEFAULT_REGION"],
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
