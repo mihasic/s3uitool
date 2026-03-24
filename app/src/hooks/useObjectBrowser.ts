@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { api } from "@/lib/api";
 import type { ObjectListResponse, TableItem, ViewMode } from "@/types/s3";
 
@@ -25,7 +26,10 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   // Filter and Pagination State
-  const [filterText, setFilterText] = useState("");
+  const [rawFilterText, setRawFilterText] = useState("");
+  // Debounce the filter text - this prevents API calls on every keystroke
+  const filterText = useDebounce(rawFilterText, 500);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
   const [pageSize, setPageSize] = useState(20);
@@ -35,7 +39,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   useEffect(() => {
     setExpandedFolders(new Set());
     shouldCheckAutoExpand.current = true;
-    setFilterText("");
+    setRawFilterText("");
     setCurrentPage(0);
     setPageTokens([null]);
   }, [prefix]);
@@ -313,7 +317,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   };
 
   const handleFilterChange = (val: string) => {
-    setFilterText(val);
+    setRawFilterText(val);
     setCurrentPage(0);
     setPageTokens([null]);
     setExpandedFolders(new Set());
@@ -348,7 +352,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     setViewMode,
     refresh: () => fetchData(true),
     toggleFolder: handleToggleFolder,
-    filterText,
+    filterText: rawFilterText,
     setFilterText: handleFilterChange,
     currentPage,
     setCurrentPage: handlePageChange,

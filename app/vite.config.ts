@@ -22,10 +22,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          jsonWorker: [`monaco-editor/esm/vs/language/json/json.worker`],
-          editorWorker: [`monaco-editor/esm/vs/editor/editor.worker`],
-          vendor: [`react`, `react-dom`],
+        manualChunks(id) {
+          if (id.includes("monaco-editor/esm/vs/language/json/json.worker")) return "jsonWorker";
+          if (id.includes("monaco-editor/esm/vs/editor/editor.worker")) return "editorWorker";
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "vendor";
         },
       },
     },
