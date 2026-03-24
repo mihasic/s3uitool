@@ -53,9 +53,12 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
 
-  // Reset keyboard selection when the visible item set changes.
+  // Keep keyboard selection index valid when the visible item set changes.
   useEffect(() => {
-    setSelectedIndex(-1);
+    setSelectedIndex((prev) => {
+      if (items.length === 0) return -1;
+      return prev >= items.length ? items.length - 1 : prev;
+    });
   }, [items]);
 
   const handleView = useCallback(
