@@ -8,6 +8,7 @@ import type { TableItem, ViewMode } from "@/types/s3";
 
 interface ObjectListTableProps {
   items: TableItem[];
+  loading?: boolean;
   bucket: string;
   selectedIndex: number;
   onView: (key: string) => void;
@@ -26,6 +27,7 @@ interface ObjectListTableProps {
 
 export function ObjectListTable({
   items,
+  loading = false,
   bucket,
   selectedIndex,
   onView,
@@ -98,6 +100,11 @@ export function ObjectListTable({
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-blue-50/90 rounded-md border-2 border-dashed border-blue-500 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
           <Upload className="h-12 w-12 mb-3 text-blue-600" />
           <span className="text-xl font-semibold text-blue-600">Drop file to upload</span>
+        </div>
+      )}
+      {loading && (
+        <div className="absolute right-3 top-3 z-10 rounded-md border bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
+          Refreshing...
         </div>
       )}
       <Table>
