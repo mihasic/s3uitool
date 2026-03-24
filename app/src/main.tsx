@@ -26,7 +26,7 @@ import "monaco-editor/esm/vs/language/json/monaco.contribution";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
-import { ConfigProvider } from "./contexts/ConfigContext";
+import { Providers } from "./providers";
 import "./index.css";
 
 self.MonacoEnvironment = {
@@ -44,8 +44,8 @@ loader.config({ monaco });
 // biome-ignore lint/style/noNonNullAssertion: root element is guaranteed to exist
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ConfigProvider>
+    <Providers>
       <App />
-    </ConfigProvider>
+    </Providers>
   </StrictMode>,
 );

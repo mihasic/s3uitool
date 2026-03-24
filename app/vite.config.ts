@@ -1,11 +1,18 @@
 import path from "node:path";
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    babel({
+      presets: [reactCompilerPreset()],
+    }),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -22,10 +29,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          jsonWorker: [`monaco-editor/esm/vs/language/json/json.worker`],
-          editorWorker: [`monaco-editor/esm/vs/editor/editor.worker`],
-          vendor: [`react`, `react-dom`],
+        manualChunks(id) {
+          if (id.includes("monaco-editor/esm/vs/language/json/json.worker")) return "jsonWorker";
+          if (id.includes("monaco-editor/esm/vs/editor/editor.worker")) return "editorWorker";
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "vendor";
         },
       },
     },

@@ -1,49 +1,27 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Database, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/lib/api";
-
-interface Bucket {
-  Name: string;
-  CreationDate: string;
-}
+import { useBuckets } from "@/hooks/useApi";
 
 export function BucketList() {
-  const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: buckets = [], isLoading: loading, error } = useBuckets();
+  const queryClient = useQueryClient();
 
-  const fetchBuckets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await api.get<Bucket[]>("s3/buckets");
-      setBuckets(data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Initial fetch
-    api
-      .get<Bucket[]>("s3/buckets")
-      .then(setBuckets)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["buckets"] });
+  };
 
   if (loading) return <div className="p-6">Loading buckets...</div>;
-  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
+  if (error)
+    return <div className="p-6 text-red-500">Error: {error instanceof Error ? error.message : String(error)}</div>;
 
   return (
     <div className="p-6">
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">S3 Buckets</h1>
-        <Button variant="outline" size="icon" onClick={fetchBuckets} title="Refresh">
+        <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>

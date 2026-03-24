@@ -53,12 +53,13 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
 
-  // Reset selection when items change (navigation, expansion, refresh)
-  const [prevItems, setPrevItems] = useState(items);
-  if (items !== prevItems) {
-    setPrevItems(items);
-    setSelectedIndex(-1);
-  }
+  // Keep keyboard selection index valid when the visible item set changes.
+  useEffect(() => {
+    setSelectedIndex((prev) => {
+      if (items.length === 0) return -1;
+      return prev >= items.length ? items.length - 1 : prev;
+    });
+  }, [items]);
 
   const handleView = useCallback(
     async (key: string) => {
@@ -319,7 +320,6 @@ export function ObjectBrowser() {
     window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`, "_blank");
   };
 
-  if (loading && items.length === 0) return <div className="p-6">Loading objects...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
   if (!bucket) return null;
 
@@ -347,6 +347,7 @@ export function ObjectBrowser() {
 
       <ObjectListTable
         items={items}
+        loading={loading}
         bucket={bucket}
         selectedIndex={selectedIndex}
         onView={handleView}
