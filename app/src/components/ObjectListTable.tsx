@@ -54,6 +54,9 @@ export function ObjectListTable({
   };
 
   const isPreviewAvailable = (filename: string) => {
+    // If no extension, we still allow previewing as it could be an image or text
+    if (!filename.includes(".")) return true;
+
     const ext = filename.split(".").pop()?.toLowerCase();
     return !!(ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx"));
   };

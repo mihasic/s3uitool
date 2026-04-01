@@ -100,6 +100,16 @@ export function ObjectBrowser() {
         const response = await api.get<{ Content: string | null; ContentType: string }>(
           `s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
         );
+
+        if (response.ContentType && response.ContentType.toLowerCase().startsWith("image/")) {
+          setSelectedFile({
+            key,
+            content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+            isImage: true,
+          });
+          return;
+        }
+
         if (response.Content !== null) {
           setSelectedFile({ key, content: response.Content, isImage: false });
         } else {
