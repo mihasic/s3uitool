@@ -101,7 +101,7 @@ export function ObjectBrowser() {
           `s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
         );
 
-        if (response.ContentType && response.ContentType.toLowerCase().startsWith("image/")) {
+        if (response.ContentType?.toLowerCase().startsWith("image/")) {
           setSelectedFile({
             key,
             content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
