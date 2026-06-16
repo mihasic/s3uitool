@@ -35,7 +35,7 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{file?.key}</DialogTitle>
-          <DialogDescription className="sr-only">Preview the contents of {file?.key}</DialogDescription>
+          <DialogDescription className="sr-only">Preview of the selected file's contents</DialogDescription>
         </DialogHeader>
         {file && (
           <div className="relative flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-md overflow-hidden">
