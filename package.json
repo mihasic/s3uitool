@@ -1,13 +1,14 @@
 {
   "name": "s3uitool",
   "devDependencies": {
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.4"
+    "lint-staged": "^17.0.7"
   },
   "overrides": {
-    "dompurify": "^3.4.3"
+    "@babel/core": "^7.29.7",
+    "dompurify": "^3.4.10"
   },
   "private": true,
   "scripts": {
