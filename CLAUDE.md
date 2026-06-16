@@ -32,11 +32,8 @@ The frontend proxies `/api` requests to the backend during development. In produ
 # Start both frontend and backend concurrently
 bun run dev
 
-# Start with LocalStack endpoints
-bun run dev:localstack
-
-# Start with RustFS endpoints
-bun run dev:rustfs
+# Start pointed at local emulators (RustFS S3 :9000 + ElasticMQ SQS :9324)
+bun run dev:local
 
 # Start only frontend (port 5173)
 bun run dev:app

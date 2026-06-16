@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DocxViewer } from "@/components/DocxViewer";
 import { FileViewer } from "@/components/FileViewer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getLanguageFromFilename } from "@/lib/file-utils";
 
 interface SelectedFile {
@@ -35,6 +35,7 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{file?.key}</DialogTitle>
+          <DialogDescription className="sr-only">Preview of the selected file's contents</DialogDescription>
         </DialogHeader>
         {file && (
           <div className="relative flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-md overflow-hidden">

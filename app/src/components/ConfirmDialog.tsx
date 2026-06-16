@@ -42,7 +42,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
       <Dialog open={options !== null} onOpenChange={(open) => !open && settle(false)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent
+          className="sm:max-w-[425px]"
+          {...(options?.description ? {} : { "aria-describedby": undefined })}
+        >
           <DialogHeader>
             <DialogTitle>{options?.title}</DialogTitle>
             {options?.description && <DialogDescription>{options.description}</DialogDescription>}
