@@ -132,6 +132,7 @@ export function ObjectBrowserToolbar({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              aria-label="Previous page"
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 0}
             >
@@ -161,6 +162,7 @@ export function ObjectBrowserToolbar({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              aria-label="Next page"
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage >= pageTokens.length - 1}
             >

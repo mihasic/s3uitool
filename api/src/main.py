@@ -4,7 +4,6 @@ from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from s3_routes import router as s3_router
@@ -75,15 +74,20 @@ def resolve_static_file(base: Path, full_path: str) -> Path | None:
     return None
 
 
-# Serve static files if the directory exists (Production/Docker)
+# Serve the built frontend (Production/Docker). The route is always registered and
+# existence is checked per-request, so it's robust to the static dir not being ready
+# at import time and to running without a bundled frontend (e.g. dev, where Vite serves it).
 static_dir = Path("/app/static")
-if static_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
 
-    @app.get("/{full_path:path}")
-    async def catch_all(full_path: str) -> FileResponse:
-        if full_path.startswith(("api/", "docs", "redoc", "openapi.json")):
-            raise HTTPException(status_code=404)
 
-        target = resolve_static_file(static_dir, full_path)
-        return FileResponse(target if target else static_dir / "index.html")
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str) -> FileResponse:
+    if full_path.startswith(("api/", "docs", "redoc", "openapi.json")):
+        raise HTTPException(status_code=404)
+
+    index = static_dir / "index.html"
+    if not index.is_file():
+        raise HTTPException(status_code=404)
+
+    target = resolve_static_file(static_dir, full_path)
+    return FileResponse(target if target else index)
