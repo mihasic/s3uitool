@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQueues } from "@/hooks/useApi";
@@ -11,6 +12,7 @@ import { getErrorMessage, reportError } from "@/lib/errors";
 export function QueueList() {
   const { data: queues = [], isLoading: loading, error } = useQueues();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const purgeQueueMutation = useMutation({
     mutationFn: (queueName: string) => api.post(`sqs/queues/${queueName}/purge`, {}),
@@ -28,8 +30,13 @@ export function QueueList() {
   };
 
   const handlePurge = async (queueName: string) => {
-    if (!confirm(`Are you sure you want to purge queue ${queueName}? This will delete all messages.`)) return;
-    purgeQueueMutation.mutate(queueName);
+    const ok = await confirm({
+      title: "Purge queue",
+      description: `Purge queue ${queueName}? This will delete all messages.`,
+      confirmText: "Purge",
+      destructive: true,
+    });
+    if (ok) purgeQueueMutation.mutate(queueName);
   };
 
   if (loading) return <div className="p-6">Loading queues...</div>;

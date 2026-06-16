@@ -1,6 +1,7 @@
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { NewFileModal } from "@/components/NewFileModal";
@@ -54,6 +55,7 @@ export function ObjectBrowser() {
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   // Keep keyboard selection index valid when the visible item set changes.
   useEffect(() => {
@@ -126,7 +128,14 @@ export function ObjectBrowser() {
 
   const handleDelete = useCallback(
     async (key: string) => {
-      if (!bucket || !confirm(`Are you sure you want to delete ${key}?`)) return;
+      if (!bucket) return;
+      const ok = await confirm({
+        title: "Delete file",
+        description: `Are you sure you want to delete ${key}?`,
+        confirmText: "Delete",
+        destructive: true,
+      });
+      if (!ok) return;
       try {
         await api.delete(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`);
         toast.success("File deleted successfully");
@@ -135,12 +144,19 @@ export function ObjectBrowser() {
         reportError("Failed to delete file", err);
       }
     },
-    [bucket, refresh],
+    [bucket, refresh, confirm],
   );
 
   const handleDeleteFolder = useCallback(
     async (folderPrefix: string) => {
-      if (!bucket || !confirm(`Are you sure you want to delete folder ${folderPrefix} and all its contents?`)) return;
+      if (!bucket) return;
+      const ok = await confirm({
+        title: "Delete folder",
+        description: `Delete folder ${folderPrefix} and all its contents?`,
+        confirmText: "Delete",
+        destructive: true,
+      });
+      if (!ok) return;
       try {
         await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix });
         toast.success("Folder deleted successfully");
@@ -149,7 +165,7 @@ export function ObjectBrowser() {
         reportError("Failed to delete folder", err);
       }
     },
-    [bucket, refresh],
+    [bucket, refresh, confirm],
   );
 
   useEffect(() => {
