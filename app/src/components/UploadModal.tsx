@@ -1,7 +1,14 @@
 import { Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/lib/errors";
@@ -88,6 +95,7 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialF
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
+          <DialogDescription>Upload a file to the current location.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">

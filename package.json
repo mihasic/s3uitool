@@ -12,8 +12,7 @@
   },
   "private": true,
   "scripts": {
-    "dev:localstack": "cross-env AWS_ENDPOINT_URL=http://localhost:4566 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
-    "dev:rustfs": "cross-env AWS_ENDPOINT_URL=http://localhost:9000 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
+    "dev:local": "cross-env AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
     "dev": "concurrently \"bun run dev:api\" \"bun run dev:app\" --names \"API,APP\" --prefix-colors \"blue,green\"",
     "dev:app": "bun run --filter app dev",
     "dev:api": "cd api && uv run python -m fastapi dev src/main.py --port 8000 --reload",
