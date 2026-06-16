@@ -1,6 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown, ChevronRight, Copy, Download, Eye, File, Folder, Trash2, Upload } from "lucide-react";
 import { Fragment, useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
@@ -149,7 +149,9 @@ export function ObjectListTable({
                   </TableCell>
                   <TableCell>
                     <Link
-                      to={`/s3/${bucket}?prefix=${encodeURIComponent(item.key)}`}
+                      to="/s3/$bucket"
+                      params={{ bucket }}
+                      search={{ prefix: item.key }}
                       className="font-medium hover:underline text-blue-600"
                     >
                       {item.name}/
@@ -221,7 +223,9 @@ export function ObjectListTable({
                               return (
                                 <Fragment key={partPrefix}>
                                   <Link
-                                    to={`/s3/${bucket}?prefix=${encodeURIComponent(partPrefix)}`}
+                                    to="/s3/$bucket"
+                                    params={{ bucket }}
+                                    search={{ prefix: partPrefix }}
                                     className="text-muted-foreground hover:underline text-sm"
                                   >
                                     {part}

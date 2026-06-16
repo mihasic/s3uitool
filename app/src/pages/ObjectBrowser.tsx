@@ -1,5 +1,5 @@
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyMoveModal } from "@/components/CopyMoveModal";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
@@ -12,10 +12,11 @@ import { api } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
+const route = getRouteApi("/s3/$bucket");
+
 export function ObjectBrowser() {
-  const { bucket } = useParams<{ bucket: string }>();
-  const [searchParams] = useSearchParams();
-  const prefix = searchParams.get("prefix") || "";
+  const { bucket } = route.useParams();
+  const { prefix } = route.useSearch();
 
   const {
     items,
@@ -167,7 +168,7 @@ export function ObjectBrowser() {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           const item = items[selectedIndex];
           if (item.type === "folder") {
-            navigate(`/s3/${bucket}?prefix=${encodeURIComponent(item.key)}`);
+            navigate({ to: "/s3/$bucket", params: { bucket }, search: { prefix: item.key } });
           } else {
             handleView(item.key);
           }

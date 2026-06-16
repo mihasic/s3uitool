@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -11,7 +12,6 @@ import {
   Upload,
 } from "lucide-react";
 import { Fragment } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,15 +81,21 @@ export function ObjectBrowserToolbar({
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" asChild>
-          <Link to={prefix ? `/s3/${bucket}?prefix=${getParentPrefix(prefix)}` : "/s3"}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+          {prefix ? (
+            <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: getParentPrefix(prefix) }}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          ) : (
+            <Link to="/s3">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          )}
         </Button>
         <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" onClick={onRefresh} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold flex flex-wrap items-center">
-          <Link to={`/s3/${bucket}`} className="hover:underline">
+          <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: "" }} className="hover:underline">
             {bucket}
           </Link>
           {parts.map((part, index) => {
@@ -97,7 +103,7 @@ export function ObjectBrowserToolbar({
             return (
               <Fragment key={currentPath}>
                 <span className="mx-2 text-muted-foreground">/</span>
-                <Link to={`/s3/${bucket}?prefix=${encodeURIComponent(currentPath)}`} className="hover:underline">
+                <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: currentPath }} className="hover:underline">
                   {part}
                 </Link>
               </Fragment>

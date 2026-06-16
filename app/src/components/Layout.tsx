@@ -1,6 +1,6 @@
+import { Link, Outlet } from "@tanstack/react-router";
 import { ArrowUp, Database, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet } from "react-router-dom";
 import { useConfig } from "../contexts/ConfigContext";
 import { Button } from "./ui/button";
 
