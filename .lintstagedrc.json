@@ -1,9 +1,9 @@
 {
   "app/**/*.{js,ts,tsx}": [
-    "bunx biome check --config-path app/biome.json --write --no-errors-on-unmatched"
+    "cd app && bunx @biomejs/biome check --write --no-errors-on-unmatched"
   ],
   "app/**/*.{css,json}": [
-    "bunx biome check --config-path app/biome.json --write --no-errors-on-unmatched"
+    "cd app && bunx @biomejs/biome check --write --no-errors-on-unmatched"
   ],
   "api/**/*.py": [
     "uv run --project api ruff check --fix",
