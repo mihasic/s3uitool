@@ -103,3 +103,14 @@ export const getParentPrefix = (currentPrefix: string) => {
   parts.pop();
   return parts.length > 0 ? `${parts.join("/")}/` : "";
 };
+
+/** Validate an S3 object key/path. Returns an error message, or null if valid. */
+export const validateObjectKey = (key: string): string | null => {
+  if (!key.trim()) return "Key cannot be empty";
+  for (const part of key.split("/")) {
+    if (part === "." || part === "..") {
+      return "Folder names cannot be '.' or '..'";
+    }
+  }
+  return null;
+};

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import type { ObjectListResponse, TableItem, ViewMode } from "@/types/s3";
 
 interface PrefixParams {
@@ -224,7 +225,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         // Also ignore if we aborted manually
         if (abortController.signal.aborted) return;
 
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getErrorMessage(err));
       } finally {
         if (!abortController.signal.aborted) {
           setLoading(false);

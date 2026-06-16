@@ -10,6 +10,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { api } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
+import { reportError } from "@/lib/errors";
 import { IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
 const route = getRouteApi("/s3/$bucket");
@@ -117,8 +118,7 @@ export function ObjectBrowser() {
           toast.error("Binary file or empty content");
         }
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to load file");
+        reportError("Failed to load file", err);
       }
     },
     [bucket],
@@ -132,8 +132,7 @@ export function ObjectBrowser() {
         toast.success("File deleted successfully");
         refresh();
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to delete file");
+        reportError("Failed to delete file", err);
       }
     },
     [bucket, refresh],
@@ -147,8 +146,7 @@ export function ObjectBrowser() {
         toast.success("Folder deleted successfully");
         refresh();
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to delete folder");
+        reportError("Failed to delete folder", err);
       }
     },
     [bucket, refresh],
@@ -237,8 +235,7 @@ export function ObjectBrowser() {
       setSelectedFile(null);
       refresh();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to save file");
+      reportError("Failed to save file", err);
     }
   };
 
@@ -253,8 +250,7 @@ export function ObjectBrowser() {
       toast.success("File uploaded successfully");
       refresh();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to upload file");
+      reportError("Failed to upload file", err);
       throw err; // Re-throw to let modal know it failed
     }
   };
@@ -315,8 +311,7 @@ export function ObjectBrowser() {
       const type = copyMoveIsFolder ? "Folder" : "File";
       toast.success(`${type} ${copyMoveAction === "copy" ? "copied" : "moved"} successfully`);
     } catch (err) {
-      console.error(err);
-      toast.error(`Failed to ${copyMoveAction} ${copyMoveIsFolder ? "folder" : "file"}`);
+      reportError(`Failed to ${copyMoveAction} ${copyMoveIsFolder ? "folder" : "file"}`, err);
     }
   };
 

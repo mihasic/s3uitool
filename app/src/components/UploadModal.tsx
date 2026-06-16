@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/errors";
+import { validateObjectKey } from "@/lib/file-utils";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -56,18 +58,6 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialF
     }
   };
 
-  const validateKey = (key: string): string | null => {
-    if (!key.trim()) return "Key cannot be empty";
-
-    const parts = key.split("/");
-    for (const part of parts) {
-      if (part === "." || part === "..") {
-        return "Folder names cannot be '.' or '..'";
-      }
-    }
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
@@ -75,7 +65,7 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialF
       return;
     }
 
-    const validationError = validateKey(key);
+    const validationError = validateObjectKey(key);
     if (validationError) {
       setError(validationError);
       return;
@@ -86,9 +76,8 @@ export function UploadModal({ isOpen, onClose, onUpload, currentPrefix, initialF
       await onUpload(file, key);
       onClose();
     } catch (err) {
-      // Error handling should be done in parent or here?
-      // Parent usually handles the API call and toast
-      console.error(err);
+      // Parent handles the toast; surface the failure in the modal too.
+      setError(getErrorMessage(err));
     } finally {
       setUploading(false);
     }

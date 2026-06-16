@@ -4,6 +4,7 @@ import { Database, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBuckets } from "@/hooks/useApi";
+import { getErrorMessage } from "@/lib/errors";
 
 export function BucketList() {
   const { data: buckets = [], isLoading: loading, error } = useBuckets();
@@ -14,8 +15,7 @@ export function BucketList() {
   };
 
   if (loading) return <div className="p-6">Loading buckets...</div>;
-  if (error)
-    return <div className="p-6 text-red-500">Error: {error instanceof Error ? error.message : String(error)}</div>;
+  if (error) return <div className="p-6 text-red-500">Error: {getErrorMessage(error)}</div>;
 
   return (
     <div className="p-6">

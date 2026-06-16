@@ -18,6 +18,25 @@ export interface ObjectListResponse {
   IsTruncated?: boolean;
 }
 
+export interface Bucket {
+  Name: string;
+  CreationDate: string;
+}
+
+export interface Queue {
+  Url: string;
+  Name: string;
+  Attributes?: Record<string, string>;
+}
+
+export interface Message {
+  MessageId: string;
+  ReceiptHandle: string;
+  Body: string;
+  MD5OfBody: string;
+  Attributes?: Record<string, string>;
+}
+
 export interface TableItem {
   key: string;
   type: "file" | "folder";

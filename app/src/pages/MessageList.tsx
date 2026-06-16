@@ -7,14 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
-
-interface Message {
-  MessageId: string;
-  ReceiptHandle: string;
-  Body: string;
-  MD5OfBody: string;
-  Attributes?: Record<string, string>;
-}
+import { getErrorMessage, reportError } from "@/lib/errors";
+import type { Message } from "@/types/s3";
 
 const route = getRouteApi("/sqs/$queueName");
 
@@ -34,7 +28,7 @@ export function MessageList() {
       setMessages(data);
       setError(null);
     } catch (err: unknown) {
-      setError((err as Error).message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -57,8 +51,7 @@ export function MessageList() {
       toast.success("Message sent successfully");
       fetchMessages();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to send message");
+      reportError("Failed to send message", err);
     }
   };
 
@@ -70,8 +63,7 @@ export function MessageList() {
       setMessages((prev) => prev.filter((m) => m.ReceiptHandle !== receiptHandle));
       toast.success("Message deleted successfully");
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete message");
+      reportError("Failed to delete message", err);
     }
   };
 
