@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Database, RefreshCw } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBuckets } from "@/hooks/useApi";
@@ -27,7 +27,7 @@ export function BucketList() {
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {buckets.map((bucket) => (
-          <Link key={bucket.Name} to={`/s3/${bucket.Name}`}>
+          <Link key={bucket.Name} to="/s3/$bucket" params={{ bucket: bucket.Name }} search={{ prefix: "" }}>
             <Card className="hover:bg-accent transition-colors cursor-pointer">
               <CardHeader className="flex flex-row items-center gap-4">
                 <Database className="h-8 w-8 text-blue-500" />

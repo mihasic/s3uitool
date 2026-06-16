@@ -1,6 +1,6 @@
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, RefreshCw, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { SendMessageModal } from "@/components/SendMessageModal";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,10 @@ interface Message {
   Attributes?: Record<string, string>;
 }
 
+const route = getRouteApi("/sqs/$queueName");
+
 export function MessageList() {
-  const { queueName } = useParams<{ queueName: string }>();
+  const { queueName } = route.useParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

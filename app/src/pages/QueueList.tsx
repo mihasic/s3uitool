@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -57,7 +57,11 @@ export function QueueList() {
             {queues.map((queue) => (
               <TableRow key={queue.Url}>
                 <TableCell className="font-medium">
-                  <Link to={`/sqs/${queue.Name}`} className="hover:underline text-blue-600">
+                  <Link
+                    to="/sqs/$queueName"
+                    params={{ queueName: queue.Name }}
+                    className="hover:underline text-blue-600"
+                  >
                     {queue.Name}
                   </Link>
                 </TableCell>
@@ -65,7 +69,7 @@ export function QueueList() {
                 <TableCell>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" asChild title="View Messages">
-                      <Link to={`/sqs/${queue.Name}`}>
+                      <Link to="/sqs/$queueName" params={{ queueName: queue.Name }}>
                         <MessageSquare className="h-4 w-4" />
                       </Link>
                     </Button>
