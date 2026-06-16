@@ -6,14 +6,15 @@ import boto3
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
+# Default to local S3/SQS emulators, but let the environment (e.g. CI) override.
+# This must run before importing the app so its boto3 clients pick up the endpoints.
+os.environ.setdefault("AWS_S3_ENDPOINT_URL", "http://localhost:9000")
+os.environ.setdefault("AWS_SQS_ENDPOINT_URL", "http://localhost:9324")
+os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "test")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
 
-# Ensure we use local S3/SQS emulators for tests
-os.environ["AWS_S3_ENDPOINT_URL"] = "http://localhost:9000"
-os.environ["AWS_SQS_ENDPOINT_URL"] = "http://localhost:9324"
-os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
-os.environ["AWS_ACCESS_KEY_ID"] = "test"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
+from src.main import app  # noqa: E402
 
 
 @pytest.fixture(scope="session")

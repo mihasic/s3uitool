@@ -35,6 +35,38 @@ jobs:
       - name: Audit dependencies
         run: uv export --format requirements-txt | uvx pip-audit -r /dev/stdin
 
+  api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: "3.14"
+
+      - name: Start S3/SQS emulators
+        run: docker compose up -d rustfs elasticmq
+
+      - name: Wait for emulators
+        run: |
+          timeout 60s bash -c 'until curl -s http://localhost:9000 > /dev/null && curl -s http://localhost:9324 > /dev/null; do sleep 2; done'
+
+      - name: Install dependencies
+        working-directory: api
+        run: uv sync --frozen
+
+      - name: Run integration tests
+        working-directory: api
+        env:
+          AWS_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_SQS_ENDPOINT_URL: http://localhost:9324
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          PYTHONPATH: src
+        run: uv run python -m pytest
+
   app-check:
     runs-on: ubuntu-latest
     steps:
@@ -50,6 +82,10 @@ jobs:
       - name: Lint with Biome
         run: |
           bun run check
+
+      - name: Unit tests
+        run: |
+          bun run --filter app test
 
       - name: Build
         run: |

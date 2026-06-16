@@ -7,8 +7,8 @@ bunx lint-staged
 echo "Running Type Checks..."
 
 # Frontend
-echo "Frontend (TSC)..."
-(cd app && bunx tsc -b)
+echo "Frontend (tsgo)..."
+(cd app && bunx tsgo -b)
 
 # Backend
 echo "Backend (Mypy)..."
