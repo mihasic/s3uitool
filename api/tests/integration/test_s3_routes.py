@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
+
+from src.main import resolve_static_file
 
 
 def test_list_buckets(test_client: TestClient) -> None:
@@ -35,3 +39,23 @@ def test_upload_and_list_objects(test_client: TestClient) -> None:
     assert response.status_code == 200
     # The API returns JSON with metadata and content
     assert response.json()["Content"] == file_content.decode("utf-8")
+
+
+def test_get_missing_object_returns_404(test_client: TestClient) -> None:
+    # A missing key should map to 404 via the central ClientError handler, not 500.
+    response = test_client.get("/api/s3/buckets/test-bucket-1/objects/does-not-exist.txt")
+    assert response.status_code == 404
+
+
+def test_static_file_resolution_blocks_traversal(tmp_path: Path) -> None:
+    base = tmp_path / "static"
+    base.mkdir()
+    (base / "index.html").write_text("ok")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("top secret")
+
+    # A real file inside the static dir resolves.
+    assert resolve_static_file(base, "index.html") == (base / "index.html").resolve()
+    # Traversal outside the static dir is rejected.
+    assert resolve_static_file(base, "../secret.txt") is None
+    assert resolve_static_file(base, "../../etc/passwd") is None

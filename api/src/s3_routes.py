@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 import tempfile
 import zipfile
@@ -5,14 +6,15 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Annotated, Any
+from urllib.parse import quote
 
-import boto3
-from botocore.exceptions import ClientError
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from config import settings
+from aws import get_client
+
+logger = logging.getLogger(__name__)
 
 S3_DELETE_BATCH_SIZE = 1000
 
@@ -20,14 +22,26 @@ router = APIRouter(prefix="/s3", tags=["s3"])
 
 
 def get_s3_client() -> Any:
-    kwargs = {}
-    endpoint_url = settings.s3_endpoint_url
-    if endpoint_url:
-        kwargs["endpoint_url"] = endpoint_url
-    if settings.aws_default_region:
-        kwargs["region_name"] = settings.aws_default_region
+    return get_client("s3")
 
-    return boto3.client("s3", **kwargs)
+
+def content_disposition(disposition: str, filename: str) -> str:
+    """Build a Content-Disposition header value safely (RFC 5987).
+
+    Emits an ASCII fallback plus a UTF-8 ``filename*`` so quotes and non-ASCII
+    characters in keys don't break the header.
+    """
+    ascii_fallback = filename.encode("ascii", "replace").decode("ascii").replace('"', "'")
+    encoded = quote(filename, safe="")
+    return f"{disposition}; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
+
+
+def all_object_keys(s3: Any, bucket: str, prefix: str) -> Iterator[str]:
+    """Yield every object key under ``prefix`` across all pages."""
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            yield obj["Key"]
 
 
 class Bucket(BaseModel):
@@ -97,17 +111,8 @@ class CopyPrefixRequest(BaseModel):
 @router.get("/buckets", response_model=list[Bucket])
 def list_buckets() -> list[Bucket]:
     s3 = get_s3_client()
-    try:
-        response = s3.list_buckets()
-        return [Bucket(**b) for b in response.get("Buckets", [])]
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code", "Unknown")
-        if error_code in {"InvalidAccessKeyId", "SignatureDoesNotMatch"}:
-            raise HTTPException(
-                status_code=502,
-                detail="S3 authentication failed. Check endpoint and credentials.",
-            ) from e
-        raise HTTPException(status_code=502, detail=f"S3 request failed: {error_code}") from e
+    response = s3.list_buckets()
+    return [Bucket(**b) for b in response.get("Buckets", [])]
 
 
 @router.get("/buckets/{bucket}/objects", response_model=ObjectList)
@@ -164,9 +169,8 @@ def list_objects_batch(bucket: str, request: BatchPrefixRequest) -> dict[str, An
             try:
                 results[prefix] = future.result()
             except Exception as e:
-                # Log error or return empty?
-                # For now returning empty result to avoid breaking the whole batch
-                print(f"Error fetching prefix {prefix}: {e}")
+                # Return an empty result for this prefix rather than failing the whole batch.
+                logger.warning("Error fetching prefix %s: %s", prefix, e)
                 results[prefix] = {
                     "Objects": [],
                     "CommonPrefixes": [],
@@ -186,253 +190,197 @@ def fetch_objects(
     filter_text: str | None = None,
     delimiter: str = "/",
 ) -> dict[str, Any]:
-    try:
-        s3_prefix = prefix
-        if filter_text:
-            s3_prefix += filter_text
+    s3_prefix = prefix
+    if filter_text:
+        s3_prefix += filter_text
 
-        kwargs = {
-            "Bucket": bucket,
-            "Prefix": s3_prefix,
-            "Delimiter": delimiter,
-            "MaxKeys": max_keys,
-        }
-        if continuation_token:
-            kwargs["ContinuationToken"] = continuation_token
+    kwargs = {
+        "Bucket": bucket,
+        "Prefix": s3_prefix,
+        "Delimiter": delimiter,
+        "MaxKeys": max_keys,
+    }
+    if continuation_token:
+        kwargs["ContinuationToken"] = continuation_token
 
-        response = s3.list_objects_v2(**kwargs)
+    response = s3.list_objects_v2(**kwargs)
 
-        objects = []
-        for obj in response.get("Contents", []):
-            # Skip the folder itself if it appears in contents
-            if obj["Key"] == prefix and prefix != "":
-                continue
-            objects.append(obj)
+    objects = []
+    for obj in response.get("Contents", []):
+        # Skip the folder itself if it appears in contents
+        if obj["Key"] == prefix and prefix != "":
+            continue
+        objects.append(obj)
 
-        common_prefixes = [{"Prefix": p["Prefix"]} for p in response.get("CommonPrefixes", [])]
+    common_prefixes = [{"Prefix": p["Prefix"]} for p in response.get("CommonPrefixes", [])]
 
-        return {
-            "Objects": objects,
-            "CommonPrefixes": common_prefixes,
-            "Prefix": prefix,
-            "NextContinuationToken": response.get("NextContinuationToken"),
-            "IsTruncated": response.get("IsTruncated", False),
-        }
-    except s3.exceptions.NoSuchBucket as e:
-        raise HTTPException(status_code=404, detail="Bucket not found") from e
+    return {
+        "Objects": objects,
+        "CommonPrefixes": common_prefixes,
+        "Prefix": prefix,
+        "NextContinuationToken": response.get("NextContinuationToken"),
+        "IsTruncated": response.get("IsTruncated", False),
+    }
 
 
 @router.get("/buckets/{bucket}/objects/{key:path}", response_model=S3ObjectContent)
 def get_object(bucket: str, key: str) -> dict[str, Any]:
     s3 = get_s3_client()
+    # Get metadata first
+    head = s3.head_object(Bucket=bucket, Key=key)
+
+    # Basic info
+    obj_data = {
+        "Key": key,
+        "LastModified": head["LastModified"],
+        "ETag": head["ETag"],
+        "Size": head["ContentLength"],
+        "StorageClass": head.get("StorageClass"),
+        "ContentType": head.get("ContentType"),
+        "Metadata": head.get("Metadata"),
+    }
+
+    # Try to get content if it's text
     try:
-        # Get metadata first
-        head = s3.head_object(Bucket=bucket, Key=key)
+        response = s3.get_object(Bucket=bucket, Key=key)
+        content = response["Body"].read().decode("utf-8")
+        obj_data["Content"] = content
+    except UnicodeDecodeError:
+        obj_data["Content"] = None  # Binary content
 
-        # Basic info
-        obj_data = {
-            "Key": key,
-            "LastModified": head["LastModified"],
-            "ETag": head["ETag"],
-            "Size": head["ContentLength"],
-            "StorageClass": head.get("StorageClass"),
-            "ContentType": head.get("ContentType"),
-            "Metadata": head.get("Metadata"),
-        }
-
-        # Try to get content if it's text
-        try:
-            response = s3.get_object(Bucket=bucket, Key=key)
-            content = response["Body"].read().decode("utf-8")
-            obj_data["Content"] = content
-        except UnicodeDecodeError:
-            obj_data["Content"] = None  # Binary content
-
-        return obj_data
-
-    except s3.exceptions.NoSuchKey as e:
-        raise HTTPException(status_code=404, detail="Object not found") from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    return obj_data
 
 
 @router.get("/buckets/{bucket}/download/{key:path}")
 def download_object(bucket: str, key: str, inline: bool = False) -> StreamingResponse:
     s3 = get_s3_client()
-    try:
-        response = s3.get_object(Bucket=bucket, Key=key)
+    response = s3.get_object(Bucket=bucket, Key=key)
 
-        content_type = response.get("ContentType", "application/octet-stream")
-        # If generic or missing, try to guess from filename
-        if not content_type or content_type == "application/octet-stream":
-            guessed_type, _ = mimetypes.guess_type(key)
-            if guessed_type:
-                content_type = guessed_type
+    content_type = response.get("ContentType", "application/octet-stream")
+    # If generic or missing, try to guess from filename
+    if not content_type or content_type == "application/octet-stream":
+        guessed_type, _ = mimetypes.guess_type(key)
+        if guessed_type:
+            content_type = guessed_type
 
-        disposition = "inline" if inline else "attachment"
-        return StreamingResponse(
-            response["Body"],
-            media_type=content_type,
-            headers={"Content-Disposition": f'{disposition}; filename="{key.split("/")[-1]}"'},
-        )
-    except s3.exceptions.NoSuchKey as e:
-        raise HTTPException(status_code=404, detail="Object not found") from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    disposition = "inline" if inline else "attachment"
+    return StreamingResponse(
+        response["Body"],
+        media_type=content_type,
+        headers={"Content-Disposition": content_disposition(disposition, key.split("/")[-1])},
+    )
 
 
 @router.put("/buckets/{bucket}/objects/{key:path}")
 def upload_object(bucket: str, key: str, file: Annotated[UploadFile, File()]) -> dict[str, str]:
     s3 = get_s3_client()
-    try:
-        extra_args = {}
-        if file.content_type:
-            extra_args["ContentType"] = file.content_type
-        else:
-            guessed_type, _ = mimetypes.guess_type(key)
-            if guessed_type:
-                extra_args["ContentType"] = guessed_type
+    extra_args = {}
+    if file.content_type:
+        extra_args["ContentType"] = file.content_type
+    else:
+        guessed_type, _ = mimetypes.guess_type(key)
+        if guessed_type:
+            extra_args["ContentType"] = guessed_type
 
-        s3.upload_fileobj(file.file, bucket, key, ExtraArgs=extra_args)
-        return {"message": "File uploaded successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    s3.upload_fileobj(file.file, bucket, key, ExtraArgs=extra_args)
+    return {"message": "File uploaded successfully"}
 
 
 @router.delete("/buckets/{bucket}/objects/{key:path}")
 def delete_object(bucket: str, key: str) -> dict[str, str]:
     s3 = get_s3_client()
-    try:
-        s3.delete_object(Bucket=bucket, Key=key)
-        return {"message": "Object deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    s3.delete_object(Bucket=bucket, Key=key)
+    return {"message": "Object deleted successfully"}
 
 
 @router.post("/buckets/{bucket}/delete-prefix")
 def delete_prefix(bucket: str, request: DeletePrefixRequest) -> dict[str, str]:
     s3 = get_s3_client()
-    try:
-        # List all objects with prefix
-        paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=request.prefix)
+    objects_to_delete = [{"Key": key} for key in all_object_keys(s3, bucket, request.prefix)]
 
-        objects_to_delete = []
-        for page in pages:
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    objects_to_delete.append({"Key": obj["Key"]})
+    if objects_to_delete:
+        # Delete in batches (S3 limit)
+        for i in range(0, len(objects_to_delete), S3_DELETE_BATCH_SIZE):
+            batch = objects_to_delete[i : i + S3_DELETE_BATCH_SIZE]
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
 
-        if objects_to_delete:
-            # Delete in batches (S3 limit)
-            for i in range(0, len(objects_to_delete), S3_DELETE_BATCH_SIZE):
-                batch = objects_to_delete[i : i + S3_DELETE_BATCH_SIZE]
-                s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
-
-        return {"message": f"Deleted {len(objects_to_delete)} objects"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    return {"message": f"Deleted {len(objects_to_delete)} objects"}
 
 
 @router.post("/copy")
 def copy_object(request: CopyRequest) -> dict[str, str]:
     s3 = get_s3_client()
-    try:
-        copy_source = {"Bucket": request.source_bucket, "Key": request.source_key}
-        s3.copy(copy_source, request.destination_bucket, request.destination_key)
+    copy_source = {"Bucket": request.source_bucket, "Key": request.source_key}
+    s3.copy(copy_source, request.destination_bucket, request.destination_key)
 
-        if request.move:
-            s3.delete_object(Bucket=request.source_bucket, Key=request.source_key)
-            return {"message": "Object moved successfully"}
+    if request.move:
+        s3.delete_object(Bucket=request.source_bucket, Key=request.source_key)
+        return {"message": "Object moved successfully"}
 
-        return {"message": "Object copied successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    return {"message": "Object copied successfully"}
 
 
 @router.post("/copy-prefix")
 def copy_prefix(request: CopyPrefixRequest) -> dict[str, str]:
     s3 = get_s3_client()
-    try:
-        paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=request.source_bucket, Prefix=request.source_prefix)
 
-        objects_op = []
-        for page in pages:
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    objects_op.append(obj["Key"])
+    count = 0
+    for src_key in all_object_keys(s3, request.source_bucket, request.source_prefix):
+        if not src_key.startswith(request.source_prefix):
+            continue
+        dest_key = request.destination_prefix + src_key[len(request.source_prefix) :]
 
-        count = 0
-        for src_key in objects_op:
-            if src_key.startswith(request.source_prefix):
-                dest_key = request.destination_prefix + src_key[len(request.source_prefix) :]
-            else:
-                continue
+        copy_source = {"Bucket": request.source_bucket, "Key": src_key}
+        s3.copy(copy_source, request.destination_bucket, dest_key)
 
-            copy_source = {"Bucket": request.source_bucket, "Key": src_key}
-            s3.copy(copy_source, request.destination_bucket, dest_key)
+        if request.move:
+            s3.delete_object(Bucket=request.source_bucket, Key=src_key)
 
-            if request.move:
-                s3.delete_object(Bucket=request.source_bucket, Key=src_key)
+        count += 1
 
-            count += 1
-
-        action = "moved" if request.move else "copied"
-        return {"message": f"Successfully {action} {count} objects"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    action = "moved" if request.move else "copied"
+    return {"message": f"Successfully {action} {count} objects"}
 
 
 @router.get("/buckets/{bucket}/download-prefix")
 def download_prefix(bucket: str, prefix: str) -> StreamingResponse:
     s3 = get_s3_client()
-    try:
-        paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    t = tempfile.TemporaryFile()
+    with zipfile.ZipFile(t, "w", zipfile.ZIP_DEFLATED) as zf:
+        for key in all_object_keys(s3, bucket, prefix):
+            if key.endswith("/"):
+                continue
 
-        t = tempfile.TemporaryFile()
-        with zipfile.ZipFile(t, "w", zipfile.ZIP_DEFLATED) as zf:
-            for page in pages:
-                if "Contents" in page:
-                    for obj in page["Contents"]:
-                        key = obj["Key"]
-                        if key.endswith("/"):
-                            continue
-
-                        try:
-                            s3_obj = s3.get_object(Bucket=bucket, Key=key)
-                            file_content = s3_obj["Body"].read()
-
-                            arcname = key[len(prefix) :] if key.startswith(prefix) else key
-                            if arcname.startswith("/"):
-                                arcname = arcname[1:]
-                            if not arcname:
-                                arcname = key.split("/")[-1]
-
-                            zf.writestr(arcname, file_content)
-                        except Exception as e:
-                            print(f"Error zipping {key}: {e}")
-                            # Continue to next file?
-                            continue
-
-        t.seek(0)
-
-        def iterfile() -> Iterator[bytes]:
             try:
-                while chunk := t.read(65536):
-                    yield chunk
-            finally:
-                t.close()
+                s3_obj = s3.get_object(Bucket=bucket, Key=key)
+                file_content = s3_obj["Body"].read()
 
-        filename = prefix.rstrip("/").split("/")[-1] + ".zip"
-        if not filename or filename == ".zip":
-            filename = "download.zip"
+                arcname = key[len(prefix) :] if key.startswith(prefix) else key
+                if arcname.startswith("/"):
+                    arcname = arcname[1:]
+                if not arcname:
+                    arcname = key.split("/")[-1]
 
-        return StreamingResponse(
-            iterfile(),
-            media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+                zf.writestr(arcname, file_content)
+            except Exception as e:
+                logger.warning("Error zipping %s: %s", key, e)
+                continue
+
+    t.seek(0)
+
+    def iterfile() -> Iterator[bytes]:
+        try:
+            while chunk := t.read(65536):
+                yield chunk
+        finally:
+            t.close()
+
+    filename = prefix.rstrip("/").split("/")[-1] + ".zip"
+    if not filename or filename == ".zip":
+        filename = "download.zip"
+
+    return StreamingResponse(
+        iterfile(),
+        media_type="application/zip",
+        headers={"Content-Disposition": content_disposition("attachment", filename)},
+    )
