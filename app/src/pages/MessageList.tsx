@@ -116,12 +116,18 @@ export function MessageList() {
                 <TableCell className="max-w-md truncate">{msg.Body}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedMessage(msg)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="View message"
+                      onClick={() => setSelectedMessage(msg)}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Delete message"
                       onClick={() => handleDelete(msg.ReceiptHandle)}
                       className="text-red-500 hover:text-red-600 hover:bg-red-50"
                     >

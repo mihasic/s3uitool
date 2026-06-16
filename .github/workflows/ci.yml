@@ -103,6 +103,11 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: "3.14"
+
       - name: Install Playwright Dependencies
         working-directory: e2e
         run: bun install --frozen-lockfile
@@ -117,6 +122,16 @@ jobs:
       - name: Wait for Service
         run: |
           timeout 60s bash -c 'until curl -s http://localhost:8000/api/health > /dev/null; do sleep 2; done'
+
+      - name: Seed test data
+        working-directory: api
+        env:
+          AWS_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_SQS_ENDPOINT_URL: http://localhost:9324
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: uv run python scripts/seed_data.py
 
       - name: Run Playwright tests
         working-directory: e2e

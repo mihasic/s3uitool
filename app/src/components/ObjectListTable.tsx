@@ -132,6 +132,7 @@ export function ObjectListTable({
                     <div className="flex items-center" style={{ paddingLeft: `${item.depth * 20}px` }}>
                       <button
                         type="button"
+                        aria-label={item.isExpanded ? "Collapse folder" : "Expand folder"}
                         onClick={(e) => {
                           e.preventDefault();
                           onToggleFolder(item.key);
@@ -265,23 +266,25 @@ export function ObjectListTable({
                       size="icon"
                       onClick={() => onView(item.key)}
                       disabled={!isPreviewAvailable(item.key)}
+                      aria-label="Preview"
                       title={isPreviewAvailable(item.key) ? "Preview" : "Preview not available"}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDownload(item.key)}>
+                    <Button variant="ghost" size="icon" onClick={() => onDownload(item.key)} aria-label="Download">
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onCopy(item.key)} title="Copy">
+                    <Button variant="ghost" size="icon" onClick={() => onCopy(item.key)} title="Copy" aria-label="Copy">
                       <Copy className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onMove(item.key)} title="Move">
+                    <Button variant="ghost" size="icon" onClick={() => onMove(item.key)} title="Move" aria-label="Move">
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(item.key)}
+                      aria-label="Delete"
                       className="text-red-500 hover:text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
