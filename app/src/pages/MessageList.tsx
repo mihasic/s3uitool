@@ -1,7 +1,9 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, RefreshCw, Send, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { SendMessageModal } from "@/components/SendMessageModal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,60 +16,58 @@ const route = getRouteApi("/sqs/$queueName");
 
 export function MessageList() {
   const { queueName } = route.useParams();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
-  const fetchMessages = useCallback(async () => {
-    if (!queueName) return;
-    setLoading(true);
-    try {
-      const data = await api.get<Message[]>(`sqs/queues/${queueName}/messages`);
-      setMessages(data);
-      setError(null);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [queueName]);
+  const messagesKey = ["messages", queueName] as const;
+  const {
+    data: messages = [],
+    isLoading: loading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: messagesKey,
+    queryFn: () => api.get<Message[]>(`sqs/queues/${queueName}/messages`),
+    refetchInterval: 5000,
+  });
 
-  useEffect(() => {
-    fetchMessages();
-    // Poll every 5 seconds
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
+  const sendMutation = useMutation({
+    mutationFn: (vars: { body: string; delaySeconds: number }) =>
+      api.post(`sqs/queues/${queueName}/messages`, { Body: vars.body, DelaySeconds: vars.delaySeconds }),
+    onSuccess: () => {
+      toast.success("Message sent successfully");
+      queryClient.invalidateQueries({ queryKey: messagesKey });
+    },
+    onError: (err) => reportError("Failed to send message", err),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (receiptHandle: string) =>
+      api.delete(`sqs/queues/${queueName}/messages/${encodeURIComponent(receiptHandle)}`),
+    onSuccess: () => {
+      toast.success("Message deleted successfully");
+      queryClient.invalidateQueries({ queryKey: messagesKey });
+    },
+    onError: (err) => reportError("Failed to delete message", err),
+  });
 
   const handleSend = async (body: string, delaySeconds: number) => {
-    if (!queueName) return;
-    try {
-      await api.post(`sqs/queues/${queueName}/messages`, {
-        Body: body,
-        DelaySeconds: delaySeconds,
-      });
-      toast.success("Message sent successfully");
-      fetchMessages();
-    } catch (err) {
-      reportError("Failed to send message", err);
-    }
+    // Swallow rejection here; onError already surfaces it. Lets the modal close either way.
+    await sendMutation.mutateAsync({ body, delaySeconds }).catch(() => {});
   };
 
   const handleDelete = async (receiptHandle: string) => {
-    if (!queueName || !confirm("Are you sure you want to delete this message?")) return;
-    try {
-      await api.delete(`sqs/queues/${queueName}/messages/${encodeURIComponent(receiptHandle)}`);
-      // Optimistic update or refresh
-      setMessages((prev) => prev.filter((m) => m.ReceiptHandle !== receiptHandle));
-      toast.success("Message deleted successfully");
-    } catch (err) {
-      reportError("Failed to delete message", err);
-    }
+    const ok = await confirm({
+      title: "Delete message",
+      description: "Are you sure you want to delete this message?",
+      confirmText: "Delete",
+      destructive: true,
+    });
+    if (ok) deleteMutation.mutate(receiptHandle);
   };
-
-  if (!queueName) return <div>Invalid queue name</div>;
 
   return (
     <div className="p-6">
@@ -87,8 +87,8 @@ export function MessageList() {
           </h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchMessages} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
           <Button onClick={() => setSendModalOpen(true)}>
@@ -98,7 +98,7 @@ export function MessageList() {
         </div>
       </div>
 
-      {error && <div className="p-4 mb-4 text-red-500 bg-red-50 rounded">{error}</div>}
+      {error && <div className="p-4 mb-4 text-red-500 bg-red-50 rounded">{getErrorMessage(error)}</div>}
 
       <div className="rounded-md border">
         <Table>

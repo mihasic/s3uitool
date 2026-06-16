@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import { ConfigProvider } from "./contexts/ConfigContext";
 
 const queryClient = new QueryClient({
@@ -19,7 +20,9 @@ const queryClient = new QueryClient({
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider>{children}</ConfigProvider>
+      <ConfigProvider>
+        <ConfirmProvider>{children}</ConfirmProvider>
+      </ConfigProvider>
     </QueryClientProvider>
   );
 }
