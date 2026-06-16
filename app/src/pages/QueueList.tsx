@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQueues } from "@/hooks/useApi";
 import { api } from "@/lib/api";
+import { getErrorMessage, reportError } from "@/lib/errors";
 
 export function QueueList() {
   const { data: queues = [], isLoading: loading, error } = useQueues();
@@ -18,8 +19,7 @@ export function QueueList() {
       queryClient.invalidateQueries({ queryKey: ["queues"] });
     },
     onError: (err) => {
-      console.error(err);
-      toast.error("Failed to purge queue");
+      reportError("Failed to purge queue", err);
     },
   });
 
@@ -33,8 +33,7 @@ export function QueueList() {
   };
 
   if (loading) return <div className="p-6">Loading queues...</div>;
-  if (error)
-    return <div className="p-6 text-red-500">Error: {error instanceof Error ? error.message : String(error)}</div>;
+  if (error) return <div className="p-6 text-red-500">Error: {getErrorMessage(error)}</div>;
 
   return (
     <div className="p-6">

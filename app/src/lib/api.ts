@@ -9,27 +9,40 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+// Default per-request timeout. Generous enough for uploads/downloads of modest files.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+async function request<T>(endpoint: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new ApiError(response.status, errorText || response.statusText);
+  // Abort on timeout, while still honoring a caller-provided signal.
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(new ApiError(408, "Request timed out")), timeoutMs);
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, timeoutController.signal])
+    : timeoutController.signal;
+
+  // Only default the JSON Content-Type for non-FormData bodies.
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData ? options.headers : { "Content-Type": "application/json", ...options.headers };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers, signal });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ApiError(response.status, errorText || response.statusText);
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return {} as T;
-  }
-
-  return response.json();
 }
 
 export const api = {
@@ -39,17 +52,7 @@ export const api = {
   put: <T>(endpoint: string, body: unknown, options?: RequestInit) =>
     request<T>(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: "DELETE" }),
-  upload: <T>(endpoint: string, formData: FormData) => {
-    const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    return fetch(`${API_BASE_URL}${url}`, {
-      method: "PUT",
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new ApiError(res.status, errorText || res.statusText);
-      }
-      return res.json() as Promise<T>;
-    });
-  },
+  // Uploads can be large; give them a longer timeout and send raw FormData.
+  upload: <T>(endpoint: string, formData: FormData, options?: RequestInit) =>
+    request<T>(endpoint, { ...options, method: "PUT", body: formData }, 5 * 60_000),
 };

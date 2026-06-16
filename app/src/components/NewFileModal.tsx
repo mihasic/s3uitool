@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { validateObjectKey } from "@/lib/file-utils";
 
 interface NewFileModalProps {
   isOpen: boolean;
@@ -27,21 +28,9 @@ export function NewFileModal({ isOpen, onClose, onCreate, currentPrefix }: NewFi
     }
   }
 
-  const validateKey = (key: string): string | null => {
-    if (!key.trim()) return "Key cannot be empty";
-
-    const parts = key.split("/");
-    for (const part of parts) {
-      if (part === "." || part === "..") {
-        return "Folder names cannot be '.' or '..'";
-      }
-    }
-    return null;
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validationError = validateKey(key);
+    const validationError = validateObjectKey(key);
     if (validationError) {
       setError(validationError);
       return;

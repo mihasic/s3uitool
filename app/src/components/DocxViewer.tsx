@@ -1,6 +1,6 @@
 import { renderAsync } from "docx-preview";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { reportError } from "@/lib/errors";
 
 interface DocxViewerProps {
   url: string;
@@ -30,8 +30,7 @@ export function DocxViewer({ url }: DocxViewerProps) {
           });
         }
       } catch (err) {
-        console.error(err);
-        if (active) toast.error("Failed to render DOCX preview");
+        if (active) reportError("Failed to render DOCX preview", err);
       } finally {
         if (active) setLoading(false);
       }
