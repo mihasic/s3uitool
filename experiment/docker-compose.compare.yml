@@ -1,0 +1,56 @@
+# Side-by-side stack for the FastAPI vs Hono experiment.
+#
+# Host ports are deliberately shifted into the 18xxx/19xxx range: on the dev
+# machine an SSH tunnel owns 8000/9000/9324 and forwards them to a *real* AWS
+# account, so the default ports must never be used for this comparison.
+name: s3uitool-compare
+
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - "19000:9000"
+    environment:
+      - RUSTFS_ACCESS_KEY=test
+      - RUSTFS_SECRET_KEY=test
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    ports:
+      - "19324:9324"
+
+  # The Python backend was removed from main once the comparison was done. Point
+  # PYTHON_WORKTREE at a `git worktree` of the pre-swap commit to rebuild it.
+  app-python:
+    build:
+      context: ${PYTHON_WORKTREE:-../../s3uitool-python}
+      dockerfile: Dockerfile
+    image: s3uitool-compare/python:latest
+    ports:
+      - "18000:8000"
+    environment:
+      - AWS_S3_ENDPOINT_URL=http://rustfs:9000
+      - AWS_SQS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - rustfs
+      - elasticmq
+
+  app-hono:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: s3uitool-compare/hono:latest
+    ports:
+      - "18001:8000"
+    environment:
+      - AWS_S3_ENDPOINT_URL=http://rustfs:9000
+      - AWS_SQS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - rustfs
+      - elasticmq

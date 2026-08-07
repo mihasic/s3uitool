@@ -11,5 +11,5 @@ echo "Frontend (tsc)..."
 (cd app && bunx tsc -b)
 
 # Backend
-echo "Backend (Mypy)..."
-(cd api && uv run mypy .)
+echo "Backend (tsc)..."
+(cd api && bunx tsc -b)

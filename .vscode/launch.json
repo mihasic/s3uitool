@@ -2,25 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "API: FastAPI",
-      "type": "debugpy",
+      "name": "API: Hono",
+      "type": "bun",
       "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "src.main:app",
-        "--reload",
-        "--port",
-        "8000"
-      ],
+      "program": "src/index.ts",
       "cwd": "${workspaceFolder}/api",
+      "watchMode": true,
       "env": {
         "AWS_ENDPOINT_URL": "http://localhost:9000",
+        "AWS_SQS_ENDPOINT_URL": "http://localhost:9324",
         "AWS_DEFAULT_REGION": "eu-west-1",
         "AWS_ACCESS_KEY_ID": "test",
-        "AWS_SECRET_ACCESS_KEY": "test",
-        "PYTHONPATH": "${workspaceFolder}/api/src"
-      },
-      "justMyCode": true
+        "AWS_SECRET_ACCESS_KEY": "test"
+      }
     },
     {
       "name": "APP: Dev Server",
@@ -46,7 +40,7 @@
     {
       "name": "Full Stack",
       "configurations": [
-        "API: FastAPI",
+        "API: Hono",
         "APP: Dev Server",
         "APP: Chrome"
       ]

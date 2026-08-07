@@ -5,8 +5,7 @@
   "app/**/*.{css,json}": [
     "cd app && bunx @biomejs/biome check --write --no-errors-on-unmatched"
   ],
-  "api/**/*.py": [
-    "uv run --project api ruff check --fix",
-    "uv run --project api ruff format"
+  "api/**/*.{ts,json}": [
+    "cd api && bunx @biomejs/biome check --write --no-errors-on-unmatched"
   ]
 }

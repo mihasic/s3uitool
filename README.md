@@ -75,6 +75,7 @@ These scripts automatically export your current AWS session credentials and pass
 | `AWS_SECRET_ACCESS_KEY` | `test` | AWS Secret Access Key. |
 | `ENABLE_S3` | `true` | Enable S3 features. |
 | `ENABLE_SQS` | `true` | Enable SQS features. |
+| `MAX_UPLOAD_MB` | `512` | Maximum multipart upload size. Bun buffers the body in memory, so this also bounds per-upload memory. |
 
 Endpoint precedence:
 1. `AWS_S3_ENDPOINT_URL` for S3 and `AWS_SQS_ENDPOINT_URL` for SQS
@@ -86,8 +87,7 @@ Endpoint precedence:
 
 - Docker
 - Docker Compose
-- Bun (for local frontend dev)
-- uv (for local backend dev)
+- Bun (for local frontend and backend dev)
 
 ### Local Configuration (.env)
 
@@ -103,39 +103,39 @@ AWS_SECRET_ACCESS_KEY=test
 
 ### Project Structure
 
-- `api/`: Python FastAPI backend
+- `api/`: TypeScript Hono backend (runs on Bun)
 - `app/`: React/Vite frontend
 - `e2e/`: Playwright End-to-End tests
 
 ### Backend
 
 ```bash
-cd api
-uv sync
-uv run fastapi dev src/main.py --port 8000
+bun install
+bun run dev:api            # http://localhost:8000, hot reload
 ```
 
 ### Frontend
 
 ```bash
-cd app
 bun install
+bun run dev:app            # http://localhost:5173, proxies /api to :8000
+```
+
+### Both at once
+
+```bash
 bun run dev
+bun run dev:local          # same, but pointed at the local RustFS/ElasticMQ emulators
 ```
 
 ### Testing
 
 #### API Integration Tests
 
-Run from the root or `api` directory:
+Needs the emulators running (`docker compose up -d rustfs elasticmq`):
 
 ```bash
-# From root
-PYTHONPATH=api/src uv run --directory api pytest
-
-# From api directory
-cd api
-PYTHONPATH=src uv run pytest
+bun run test:api
 ```
 
 #### End-to-End Tests
@@ -145,13 +145,21 @@ The default config starts the frontend automatically but expects the backend to 
 
 1. Start Backend:
    ```bash
-   cd api && uv run fastapi dev src/main.py --port 8000
+   bun run dev:api
    ```
 2. Run Tests (from `e2e` directory):
    ```bash
    cd e2e
-   npx playwright test
+   bunx playwright test
    ```
+
+Alternatively, point Playwright straight at the built container and skip Vite:
+
+```bash
+docker compose up -d --build
+bun run seed
+cd e2e && APP_PORT=8000 bunx playwright test
+```
 
 ## Release
 

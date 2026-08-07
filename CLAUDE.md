@@ -9,19 +9,23 @@ S3UITool is a single-container web application for managing S3 and SQS resources
 Full-stack monorepo with two layers:
 
 - **Frontend** (`app/`): React 19 + TypeScript + Vite + Tailwind CSS 4
-- **Backend** (`api/`): Python 3.14 + FastAPI + boto3
+- **Backend** (`api/`): TypeScript + Hono on Bun + AWS SDK v3
 - **E2E Tests** (`e2e/`): Playwright
 
-The frontend proxies `/api` requests to the backend during development. In production, both are served from a single Docker container (FastAPI serves the built frontend as static files).
+The backend was ported from Python/FastAPI in 2026-08; `experiment/REPORT.md` records
+the comparison and the porting gotchas (AWS credential precedence, S3 path-style
+addressing, upload buffering).
+
+The frontend proxies `/api` requests to the backend during development. In production, both are served from a single Docker container (the Hono app serves the built frontend as static files).
 
 ## Tech Stack
 
 | Layer | Technologies |
 |-------|-------------|
 | Frontend | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Radix UI, TanStack Query v5, Monaco Editor |
-| Backend | Python 3.14, FastAPI, boto3, Pydantic, uvicorn |
-| Tooling | Bun (package manager + workspace), uv (Python), Biome (JS/TS lint+format), Ruff (Python lint+format), Mypy (type checking) |
-| Testing | Pytest (API integration), Playwright (E2E) |
+| Backend | Bun, Hono 4, AWS SDK v3 (`@aws-sdk/client-s3`, `client-sqs`, `lib-storage`), fflate |
+| Tooling | Bun (runtime + package manager + workspace + test runner), Biome (lint+format), TypeScript (type checking) |
+| Testing | `bun test` (API integration), Playwright (E2E) |
 | CI | GitHub Actions |
 
 ## Common Commands
@@ -48,26 +52,24 @@ bun run seed
 ### Linting & Formatting
 
 ```bash
-# Lint frontend (Biome)
+# Lint frontend / backend (Biome)
 bun run lint
-
-# Lint backend (Ruff)
 bun run lint:api
 
-# Auto-fix frontend (Biome)
+# Auto-fix (Biome)
 bun run fix:app
-
-# Auto-fix backend (Ruff)
 bun run fix:api
+bun run fix          # both
 
-# Auto-fix both
-bun run fix
+# Biome CI check (no writes)
+bun run check        # both
+bun run check:app
+bun run check:api
 
-# Type check frontend
-bun run check
-
-# Type check backend
-bun run mypy
+# Type check (tsc)
+bun run typecheck    # both
+bun run typecheck:app
+bun run typecheck:api
 ```
 
 ### Testing
@@ -97,16 +99,22 @@ docker compose up -d --build
 
 ```
 /
-├── api/                        # Python FastAPI backend
+├── api/                        # TypeScript Hono backend (Bun runtime)
 │   ├── src/
-│   │   ├── main.py             # App entry, middleware, route mounting, static serving
-│   │   ├── config.py           # Pydantic Settings (env vars)
-│   │   ├── s3_routes.py        # S3 API endpoints
-│   │   └── sqs_routes.py       # SQS API endpoints
-│   ├── tests/
-│   │   ├── conftest.py         # Fixtures (test client, boto3 clients, infrastructure)
-│   │   └── integration/        # Integration tests against local emulators
-│   └── pyproject.toml          # Python deps, ruff + mypy config
+│   │   ├── index.ts            # Bun.serve entry (port, body cap, idle timeout)
+│   │   ├── app.ts              # Hono app: CORS, routes, static serving, 404/405
+│   │   ├── config.ts           # Env + .env settings
+│   │   ├── aws.ts              # Cached SDK v3 clients (env credentials, path-style S3)
+│   │   ├── errors.ts           # AWS error → HTTP mapping, `{detail: ...}` responses
+│   │   ├── cors.ts             # Starlette-equivalent CORS middleware
+│   │   ├── serialize.ts        # pydantic-compatible ISO dates, RFC 5987 filenames
+│   │   ├── static.ts           # Static file resolution with traversal guard
+│   │   ├── zip.ts              # Streaming zip (fflate)
+│   │   ├── s3.ts               # S3 API endpoints
+│   │   └── sqs.ts              # SQS API endpoints
+│   ├── tests/                  # `bun test` integration tests against local emulators
+│   ├── scripts/seed-data.ts    # Seed script
+│   └── package.json            # Deps + scripts
 │
 ├── app/                        # React/Vite frontend
 │   ├── src/
@@ -125,10 +133,11 @@ docker compose up -d --build
 │   ├── tests/
 │   └── playwright.config.ts
 │
+├── experiment/                 # FastAPI ↔ Hono comparison harness + REPORT.md
 ├── docker-compose.yml          # Local dev stack (RustFS + ElasticMQ + app)
-├── Dockerfile                  # Multi-stage build (Bun → uv → runtime)
-├── .husky/pre-commit           # Pre-commit: lint-staged + tsc + mypy
-└── .lintstagedrc.json          # Biome for JS/TS/CSS, Ruff for Python
+├── Dockerfile                  # Multi-stage build (shared deps → frontend + bundle → bun:1-slim)
+├── .husky/pre-commit           # Pre-commit: lint-staged + tsc (app) + tsc (api)
+└── .lintstagedrc.json          # Biome for all JS/TS/CSS/JSON
 ```
 
 ## Code Conventions
@@ -144,21 +153,23 @@ docker compose up -d --build
 - **Error handling**: Custom `ApiError` class in `lib/api.ts`, toast notifications via `sonner`
 - **Strict TypeScript**: `noUnusedLocals`, `noUnusedParameters`, `verbatimModuleSyntax`
 
-### Backend (Python)
+### Backend (TypeScript/Hono)
 
-- **Formatter**: Ruff with 120 line width, targeting Python 3.14
-- **Lint rules**: E, F, I, B, UP, FAST (pyflakes, pycodestyle, isort, flake8-bugbear, pyupgrade, FastAPI)
-- **Type checking**: Mypy strict mode with `ignore_missing_imports`
-- **Models**: Pydantic BaseModel for request/response schemas
-- **Config**: Pydantic Settings loading from env vars and `.env` files
-- **Routes**: FastAPI APIRouter with `/api` prefix
+- **Formatter**: Biome, same config as the frontend (2-space, 120 width, double quotes)
+- **Type checking**: `tsc -b` in strict mode, `noUnusedLocals`/`noUnusedParameters`/`erasableSyntaxOnly`
+- **Routes**: one `Hono()` sub-app per service, mounted at `/api/s3` and `/api/sqs`
+- **Path params spanning slashes**: `:key{.+}` (Hono decodes `%2F` like Starlette's `:path`)
+- **Errors**: throw; `onError` maps AWS SDK exceptions to `{detail: ...}` with 404/502
+- **Config**: `src/config.ts` reads env vars and `.env` / `../.env`
+- **AWS clients**: always go through `getS3Client()` / `getSqsClient()` — they pin env
+  credentials (the JS chain would otherwise prefer `AWS_PROFILE`) and force path-style S3
 
 ## Pre-commit Hooks
 
 The pre-commit hook runs:
-1. **lint-staged**: Biome auto-fix on JS/TS/CSS files, Ruff auto-fix + format on Python files
+1. **lint-staged**: Biome auto-fix on JS/TS/CSS/JSON files
 2. **TypeScript check**: `tsc -b` in `app/`
-3. **Mypy check**: `mypy .` in `api/`
+3. **TypeScript check**: `tsc -b` in `api/`
 
 All checks must pass before a commit is accepted.
 
@@ -174,6 +185,8 @@ All checks must pass before a commit is accepted.
 | `AWS_SECRET_ACCESS_KEY` | AWS secret key |
 | `ENABLE_S3` | Toggle S3 features (default: `true`) |
 | `ENABLE_SQS` | Toggle SQS features (default: `true`) |
+| `MAX_UPLOAD_MB` | Max multipart upload size, also the per-upload memory bound (default: `512`) |
+| `STATIC_DIR` | Directory holding the built frontend (default: `/app/static`) |
 
 Endpoint precedence: service-specific (`AWS_S3_ENDPOINT_URL` / `AWS_SQS_ENDPOINT_URL`) > shared (`AWS_ENDPOINT_URL`).
 
@@ -181,14 +194,15 @@ Endpoint precedence: service-specific (`AWS_S3_ENDPOINT_URL` / `AWS_SQS_ENDPOINT
 
 - **API tests** need RustFS on port 9000 and ElasticMQ on port 9324 (use `docker compose up rustfs elasticmq`)
 - **E2E tests** need the full stack running; Playwright is configured for Chromium only
-- Test fixtures in `api/tests/conftest.py` create buckets (`test-bucket-1`, `test-bucket-2`) and queues (`test-queue-1`, `test-queue-2`) automatically
+- `api/tests/setup.ts` (a `bun test` preload) sets the endpoint env vars and creates buckets (`test-bucket-1`, `test-bucket-2`) and queues (`test-queue-1`, `test-queue-2`) automatically
 
 ## CI Pipeline
 
 GitHub Actions runs on push/PR to `main`:
-1. **api-check**: Ruff lint + format check, Mypy, dependency audit
-2. **app-check**: Biome check, TypeScript build, dependency audit
-3. **e2e-check**: Docker compose up, wait for health, Playwright tests
+1. **api-check**: Biome check, `tsc -b`, dependency audit
+2. **api-test**: `bun test` against RustFS + ElasticMQ
+3. **app-check**: Biome check, unit tests, Vite build, dependency audit
+4. **e2e-check**: Docker compose up, wait for health, seed, Playwright tests
 
 ## Release Process
 
