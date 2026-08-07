@@ -30,7 +30,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("monaco-editor/esm/vs/language/json/json.worker")) return "jsonWorker";
+          if (id.includes("monaco-editor/esm/vs/languages/features/json/json.worker")) return "jsonWorker";
           if (id.includes("monaco-editor/esm/vs/editor/editor.worker")) return "editorWorker";
           if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "vendor";
         },
