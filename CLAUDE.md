@@ -12,10 +12,9 @@ Full-stack monorepo with two layers:
 - **Backend** (`api/`): TypeScript + Hono on Bun + AWS SDK v3
 - **E2E Tests** (`e2e/`): Playwright
 
-The backend was ported from Python/FastAPI in 2026-08; `docs/backend-port.md` records
-the comparison and the porting gotchas (AWS credential precedence, S3 path-style
-addressing, upload buffering). The API no longer aims for FastAPI wire-compatibility —
-the frontend in `app/` is the only client, so the two evolve together.
+The backend was ported from Python/FastAPI in 2026-08 (see git history for the
+comparison). The API does not aim for FastAPI wire-compatibility — the frontend in
+`app/` is the only client, so the two evolve together.
 
 The frontend proxies `/api` requests to the backend during development. In production, both are served from a single Docker container (the Hono app serves the built frontend as static files).
 
@@ -134,7 +133,6 @@ docker compose up -d --build
 │   ├── tests/
 │   └── playwright.config.ts
 │
-├── docs/                       # Backend port write-ups and benchmarks
 ├── docker-compose.yml          # Local dev stack (RustFS + ElasticMQ + app)
 ├── Dockerfile                  # Multi-stage build (shared deps → frontend + bundle → bun:1-slim)
 ├── .husky/pre-commit           # Pre-commit: lint-staged + tsc (app) + tsc (api)
@@ -168,6 +166,10 @@ docker compose up -d --build
 - **Config**: `src/config.ts` reads env vars only; the dev script passes `--env-file=../.env`
 - **AWS clients**: always go through `getS3Client()` / `getSqsClient()` — they pin env
   credentials (the JS chain would otherwise prefer `AWS_PROFILE`) and force path-style S3
+- **Zip**: `zip.ts` compresses with Bun's native `CompressionStream` (fflate writes only
+  the container) and is driven from `pull`. Both matter: fflate's JS deflate stalled the
+  event loop and buffering objects peaked at 2.9 GB RSS for one 200 MiB file. `client-zip`
+  was evaluated and rejected — it never compresses
 
 ## Pre-commit Hooks
 
