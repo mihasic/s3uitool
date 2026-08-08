@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { unzipSync } from "fflate";
-import { app } from "../src/app.ts";
+import { app } from "../src/app";
 
 const BUCKET = "test-bucket-1";
 

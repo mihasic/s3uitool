@@ -12,58 +12,44 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
 import { lookup as lookupMime } from "mime-types";
-import { getS3Client } from "./aws.ts";
-import {
-  bool,
-  dateTime,
-  type Input,
-  int,
-  listOf,
-  model,
-  nullable,
-  recordOf,
-  respondWith,
-  str,
-  stringMap,
-  withDefault,
-} from "./model.ts";
-import { type ZipEntry, zipStream } from "./zip.ts";
+import { z } from "zod";
+import { getS3Client } from "./aws";
+import { dateTime, nullable, respondWith, stringMap } from "./model";
+import { type ZipEntry, zipStream } from "./zip";
 
 const S3_DELETE_BATCH_SIZE = 1000;
 const BATCH_CONCURRENCY = 10;
 
-const bucketModel = model({
-  Name: withDefault(str, ""),
+const bucketModel = z.object({
+  Name: z.string().default(""),
   CreationDate: dateTime,
 });
 
-const s3ObjectModel = model({
-  Key: withDefault(str, ""),
+const s3ObjectModel = z.object({
+  Key: z.string().default(""),
   LastModified: dateTime,
-  ETag: withDefault(str, ""),
-  Size: withDefault(int, 0),
-  StorageClass: nullable(str),
+  ETag: z.string().default(""),
+  Size: z.number().default(0),
+  StorageClass: nullable(z.string()),
 });
 
-/** `S3Object` plus the decoded body. */
-const s3ObjectContentModel = model({
-  ...s3ObjectModel.shape,
-  ContentType: nullable(str),
+const s3ObjectContentModel = s3ObjectModel.extend({
+  ContentType: nullable(z.string()),
   Metadata: nullable(stringMap),
-  Content: nullable(str),
+  Content: nullable(z.string()),
 });
 
-const objectListModel = model({
-  Objects: listOf(s3ObjectModel),
-  CommonPrefixes: withDefault(listOf(model({ Prefix: withDefault(str, "") })), []),
-  Prefix: str,
-  NextContinuationToken: nullable(str),
-  IsTruncated: withDefault(bool, false),
+const objectListModel = z.object({
+  Objects: z.array(s3ObjectModel),
+  CommonPrefixes: z.array(z.object({ Prefix: z.string().default("") })).default([]),
+  Prefix: z.string(),
+  NextContinuationToken: nullable(z.string()),
+  IsTruncated: z.boolean().default(false),
 });
 
-const objectListBatchModel = recordOf(objectListModel);
+const objectListBatchModel = z.record(z.string(), objectListModel);
 
-type ObjectList = Input<typeof objectListModel>;
+type ObjectList = z.input<typeof objectListModel>;
 
 type PrefixParams = {
   prefix: string;
@@ -109,7 +95,7 @@ async function fetchObjects(
 
   const response = await s3.send(new ListObjectsV2Command(input));
 
-  const objects: Input<typeof s3ObjectModel>[] = [];
+  const objects: z.input<typeof s3ObjectModel>[] = [];
   for (const obj of response.Contents ?? []) {
     // Skip the folder itself if it appears in contents
     if (obj.Key === prefix && prefix !== "") continue;
@@ -125,14 +111,14 @@ async function fetchObjects(
   };
 }
 
-/** Build a Content-Disposition header that survives quotes and non-ASCII in keys (RFC 5987). */
+/** RFC 5987: survives quotes and non-ASCII in keys. */
 function contentDisposition(disposition: string, filename: string): string {
-  // Browsers prefer `filename*`; the plain `filename` is the ASCII-only fallback.
+  // Browsers prefer `filename*`; `filename` is the ASCII fallback.
   const ascii = filename.replace(/[^\x20-\x7e]/g, "?").replaceAll('"', "'");
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-/** A non-numeric value falls back rather than failing the request. */
+/** Non-numeric falls back rather than failing the request. */
 function intParam(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(raw ?? "", 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -154,7 +140,7 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
 
 s3Routes.get("/buckets", async () => {
   const response = await getS3Client().send(new ListBucketsCommand({}));
-  return respondWith(listOf(bucketModel), response.Buckets ?? []);
+  return respondWith(z.array(bucketModel), response.Buckets ?? []);
 });
 
 s3Routes.get("/buckets/:bucket/objects", async (c) => {
@@ -194,7 +180,7 @@ s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
     try {
       return { prefix: job.prefix, value: await job.run() };
     } catch (e) {
-      // Return an empty result for this prefix rather than failing the whole batch.
+      // One bad prefix must not fail the batch.
       console.warn(`Error fetching prefix ${job.prefix}: ${e}`);
       return {
         prefix: job.prefix,
@@ -253,8 +239,7 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
     const guessed = lookupMime(key);
     if (guessed) contentType = guessed;
   }
-  // Without a charset the browser guesses, and `?inline=true` previews of UTF-8
-  // text render as mojibake.
+  // Without a charset, `?inline=true` previews of UTF-8 text render as mojibake.
   if (contentType.startsWith("text/") && !contentType.includes("charset=")) contentType += "; charset=utf-8";
 
   const disposition = c.req.query("inline") === "true" ? "inline" : "attachment";
@@ -377,8 +362,7 @@ s3Routes.get("/buckets/:bucket/download-prefix", async (c) => {
     for await (const key of allObjectKeys(s3, bucket, prefix)) {
       if (key.endsWith("/")) continue;
 
-      // Only the lookup is guarded: once bytes are flowing into the archive a
-      // failure has to surface, not silently truncate the file.
+      // Guard the lookup only: once bytes flow, a failure must surface.
       let body: ReadableStream<Uint8Array> | undefined;
       try {
         const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));

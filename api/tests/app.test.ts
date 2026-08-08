@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { app } from "../src/app.ts";
-import { resolveStaticFile } from "../src/static.ts";
+import { app } from "../src/app";
+import { resolveStaticFile } from "../src/static";
 
 describe("app", () => {
   test("reports feature flags", async () => {
@@ -46,6 +46,54 @@ describe("app", () => {
     const res = await app.request("/api/health", { headers: { Origin: "http://localhost:5173" } });
     expect(res.headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
     expect(res.headers.get("access-control-allow-credentials")).toBe("true");
+    expect(res.headers.get("vary")).toContain("Origin");
+    // Not CORS-safelisted, so a fetch-based download could not read them otherwise.
+    expect(res.headers.get("access-control-expose-headers")).toContain("Content-Disposition");
+  });
+
+  test("leaves same-origin responses untouched", async () => {
+    const res = await app.request("/api/health");
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+    expect(res.headers.get("access-control-allow-credentials")).toBeNull();
+  });
+
+  test("answers a preflight with the headers Chrome requires", async () => {
+    const res = await app.request("/api/s3/copy", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://ui.example.com",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://ui.example.com");
+    expect(res.headers.get("access-control-allow-methods")).toContain("POST");
+    expect(res.headers.get("access-control-allow-headers")).toContain("content-type");
+    // Without a max-age Chrome re-preflights before every mutating request.
+    expect(res.headers.get("access-control-max-age")).toBe("600");
+  });
+
+  test("opts in to Chrome's private network access check", async () => {
+    // A page on a public origin calling this API on localhost or a LAN address
+    // sends this on the preflight and fails unless the response opts in.
+    const res = await app.request("/api/s3/buckets", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://ui.example.com",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Private-Network": "true",
+      },
+    });
+    expect(res.headers.get("access-control-allow-private-network")).toBe("true");
+  });
+
+  test("does not advertise private network access to same-origin callers", async () => {
+    const res = await app.request("/api/s3/buckets", {
+      method: "OPTIONS",
+      headers: { "Access-Control-Request-Method": "GET", "Access-Control-Request-Private-Network": "true" },
+    });
+    expect(res.headers.get("access-control-allow-private-network")).toBeNull();
   });
 });
 

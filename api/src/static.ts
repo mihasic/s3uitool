@@ -1,12 +1,7 @@
 import { realpathSync, statSync } from "node:fs";
 import { resolve, sep } from "node:path";
 
-/**
- * Resolve `fullPath` under `base`, or null if it escapes or isn't a file.
- *
- * Guards against path traversal (e.g. URL-encoded `..`) by requiring the
- * resolved target to stay within `base`.
- */
+/** Resolve `fullPath` under `base`, or null if it escapes (traversal) or isn't a file. */
 export function resolveStaticFile(base: string, fullPath: string): string | null {
   const baseResolved = realpath(resolve(base));
   const target = realpath(resolve(baseResolved, fullPath));
@@ -16,7 +11,7 @@ export function resolveStaticFile(base: string, fullPath: string): string | null
   return null;
 }
 
-/** `Path.resolve()` in Python also follows symlinks; fall back for missing paths. */
+/** Follow symlinks; fall back for paths that don't exist. */
 function realpath(path: string): string {
   try {
     return realpathSync(path);

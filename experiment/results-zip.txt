@@ -1,6 +1,0 @@
-python   zip 50MiB → 153822 bytes   runs: 0.28 0.28 0.27 s
-hono     zip 50MiB → 157222 bytes   runs: 0.51 0.50 0.50 s
-
-== single 256 KiB object download ==
-python {"url":"http://localhost:18000/api/s3/buckets/bench/download/big%2Ff000.txt","requests":300,"concurrency":8,"failures":0,"seconds":3.263,"rps":92,"p50_ms":87.5,"p95_ms":107.31,"p99_ms":114.84}
-hono {"url":"http://localhost:18001/api/s3/buckets/bench/download/big%2Ff000.txt","requests":300,"concurrency":8,"failures":0,"seconds":0.297,"rps":1010,"p50_ms":7.42,"p95_ms":12.73,"p99_ms":14.67}

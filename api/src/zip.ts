@@ -1,9 +1,6 @@
-import { Zip, ZipDeflate } from "fflate";
+import { Zip, type ZipInputFile } from "fflate";
 
-/**
- * The structural minimum this module needs, so both Bun's global `ReadableStream`
- * and the `node:stream/web` one the AWS SDK returns satisfy it.
- */
+/** Fits Bun's `ReadableStream` and the `node:stream/web` one the SDK returns. */
 type ChunkReader = {
   read(): Promise<{ done: boolean; value?: Uint8Array }>;
   cancel(reason?: unknown): Promise<void>;
@@ -11,15 +8,62 @@ type ChunkReader = {
 
 export type ZipEntry = { name: string; data: { getReader(): ChunkReader } };
 
+/** fflate and Bun.hash want a non-shared buffer. */
+type Bytes = Uint8Array<ArrayBuffer>;
+
 /**
- * Stream a DEFLATE-compressed zip built from `entries`, matching the Python
- * implementation's `zipfile.ZIP_DEFLATED` output.
- *
- * Everything is driven from `pull`, so the producer only advances when the client
- * reads: one source chunk is fetched and compressed per read, and nothing is
- * buffered beyond the chunk in flight. Feeding fflate from `start` instead — or
- * handing it whole objects — makes peak memory scale with the size of the
- * archive rather than the size of a chunk.
+ * A fflate zip entry backed by Bun's native deflate: fflate writes the container,
+ * zlib compresses off-thread so a large download never stalls the event loop.
+ */
+class NativeDeflate implements ZipInputFile {
+  compression = 8;
+  size = 0;
+  crc = 0;
+  ondata!: NonNullable<ZipInputFile["ondata"]>;
+  filename: string;
+
+  #stream = new CompressionStream("deflate-raw");
+  #writer = this.#stream.writable.getWriter();
+  #pump?: Promise<void>;
+
+  constructor(filename: string) {
+    this.filename = filename;
+  }
+
+  /** Hold one chunk back so the last can be flagged final. */
+  #start(): Promise<void> {
+    const reader = this.#stream.readable.getReader();
+    return (async () => {
+      let held: Bytes | undefined;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (held) this.ondata(null, held, false);
+        held = value as Bytes;
+      }
+      // size and crc are final: the writer closes only after the last push.
+      this.ondata(null, held ?? new Uint8Array(0), true);
+    })();
+  }
+
+  async push(bytes: Uint8Array): Promise<void> {
+    const chunk = bytes as Bytes;
+    this.#pump ??= this.#start();
+    this.size += chunk.length;
+    this.crc = Bun.hash.crc32(chunk, this.crc) >>> 0;
+    await this.#writer.write(chunk);
+  }
+
+  async end(): Promise<void> {
+    this.#pump ??= this.#start();
+    await this.#writer.close();
+    await this.#pump;
+  }
+}
+
+/**
+ * Stream `entries` as a DEFLATE zip. Driven from `pull`: one source chunk per
+ * read, so peak memory tracks the chunk in flight, not the archive.
  */
 export function zipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint8Array> {
   const pending: Uint8Array[] = [];
@@ -36,10 +80,10 @@ export function zipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint
   });
 
   const source = entries[Symbol.asyncIterator]();
-  let current: { file: ZipDeflate; reader: ChunkReader } | null = null;
+  let current: { file: NativeDeflate; reader: ChunkReader } | null = null;
   let ended = false;
 
-  /** Advance the producer by one step. Returns false once everything has been written. */
+  /** Advance one step. False once everything has been written. */
   async function step(): Promise<boolean> {
     if (ended) return false;
 
@@ -50,7 +94,7 @@ export function zipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint
         ended = true;
         return false;
       }
-      const file = new ZipDeflate(next.value.name, { level: 6 });
+      const file = new NativeDeflate(next.value.name);
       zip.add(file);
       current = { file, reader: next.value.data.getReader() };
       return true;
@@ -58,10 +102,10 @@ export function zipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint
 
     const { value, done } = await current.reader.read();
     if (done) {
-      current.file.push(new Uint8Array(0), true);
+      await current.file.end();
       current = null;
     } else if (value) {
-      current.file.push(value, false);
+      await current.file.push(value);
     }
     return true;
   }

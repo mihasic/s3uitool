@@ -22,3 +22,24 @@ dependency and no loss of compression. client-zip is leaner still, but only
 because it never compresses: on compressible content it ships a 209 MB archive
 where DEFLATE ships 0.6 MB — a 341x regression on exactly the content this tool
 is most often used to download (logs, JSON, config, source).
+
+--------------------------------------------------------------------------------
+FOLLOW-UP: Bun native CompressionStream("deflate-raw") + Bun.hash.crc32, with
+fflate writing only the zip container (ZipInputFile). A/B over identical S3
+prefixes, same process, same run:
+
+corpus                          fflate                       native
+--------------------------------------------------------------------------------
+200 real-text files, 50 MiB     1.02s  82,287 B  stall 11ms  0.58s  75,822 B  3ms
+200 lorem-repeat files, 50 MiB  0.99s 164,642 B  stall 15ms  0.57s 335,949 B  3ms
+1 x 200 MiB compressible        1.94s 613,799 B  stall  9ms  0.78s 1,216,824 B 7ms
+
+In-server peak RSS for GET /download-prefix (baseline 87 MiB):
+
+  200 MiB compressible     fflate 778 MiB   ->  native 130 MiB
+  200 MiB incompressible   fflate 989 MiB   ->  native 728 MiB
+  /api/health latency while a 200 MiB zip streams: 2 ms
+
+Native is faster in every case and 8% smaller on realistic text; it is larger only
+on pathologically repetitive input, where fflate's level 6 finds longer matches.
+Archives verified with system unzip, zipinfo, Python zipfile and fflate unzipSync.

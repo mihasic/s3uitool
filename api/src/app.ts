@@ -1,23 +1,19 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { settings } from "./config.ts";
-import { onError } from "./errors.ts";
-import { s3Routes } from "./s3.ts";
-import { sqsRoutes } from "./sqs.ts";
-import { resolveStaticFile } from "./static.ts";
+import { settings } from "./config";
+import { corsMiddleware } from "./cors";
+import { onError } from "./errors";
+import { s3Routes } from "./s3";
+import { sqsRoutes } from "./sqs";
+import { resolveStaticFile } from "./static";
 
-// Serve the built frontend (Production/Docker). The route is always registered and
-// existence is checked per-request, so it's robust to the static dir not being ready
-// at import time and to running without a bundled frontend (e.g. dev, where Vite serves it).
+// Checked per-request, so running without a bundled frontend (dev) still works.
 const STATIC_DIR = process.env.STATIC_DIR ?? "/app/static";
 
 export const app = new Hono();
 
-// The UI is same-origin in production and behind Vite's proxy in dev; this only
-// matters when someone points VITE_API_URL at a different host.
-app.use("*", cors({ origin: (origin) => origin, credentials: true }));
+app.use("*", corsMiddleware);
 
 app.onError(onError);
 
@@ -35,10 +31,9 @@ app.get("/*", (c) => {
   const index = join(STATIC_DIR, "index.html");
   if (!statSync(index, { throwIfNoEntry: false })?.isFile()) return c.json({ error: "Not found" }, 404);
 
-  // Unknown paths fall back to index.html so the SPA router can handle them.
+  // Unknown paths fall back to index.html for the SPA router.
   const file = Bun.file(resolveStaticFile(STATIC_DIR, path) ?? index);
-  // `new Response(BunFile)` does not set a Content-Type, and browsers refuse to
-  // execute a module script served without one.
+  // `new Response(BunFile)` sets no Content-Type; module scripts need one.
   return new Response(file, { headers: { "Content-Type": file.type } });
 });
 

@@ -2,12 +2,11 @@
   "name": "experiment-harness",
   "private": true,
   "type": "module",
-  "description": "Standalone tooling for the FastAPI/Hono comparison. Deliberately NOT a workspace member — it must not affect the app or the Docker build. Run `bun install` here before using complexity.ts.",
+  "description": "Standalone tooling for the source-metrics report. Deliberately NOT a workspace member.",
   "scripts": {
     "metrics": "bun metrics.ts"
   },
   "devDependencies": {
-    "client-zip": "2.5.0",
     "typescript": "5.9.3"
   }
 }

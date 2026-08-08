@@ -7,7 +7,6 @@
     "moduleResolution": "bundler",
     "types": ["bun"],
     "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,

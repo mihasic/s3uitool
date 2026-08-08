@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { app } from "../src/app.ts";
+import { app } from "../src/app";
 
 const QUEUE = "test-queue-1";
 

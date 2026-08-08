@@ -1,27 +1,24 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 
-/** AWS error codes that mean "the thing you asked for isn't there". */
+/** AWS codes that mean the thing isn't there. */
 const NOT_FOUND_MESSAGES: Record<string, string> = {
   NoSuchBucket: "Bucket not found",
   NoSuchKey: "Object not found",
   NotFound: "Not found",
   QueueDoesNotExist: "Queue not found",
-  // ElasticMQ and other emulators may still answer with the query-protocol code.
+  // Emulators may still answer with the query-protocol code.
   "AWS.SimpleQueueService.NonExistentQueue": "Queue not found",
 };
 const AUTH_ERROR_CODES = new Set(["InvalidAccessKeyId", "SignatureDoesNotMatch"]);
 
-/** Every SDK v3 service exception carries `$metadata`; the wire code lands on `name`. */
+/** SDK exceptions carry `$metadata`; the wire code lands on `name`. */
 function awsErrorCode(err: unknown): string | undefined {
   if (err instanceof Error && typeof (err as { $metadata?: unknown }).$metadata === "object") return err.name;
   return undefined;
 }
 
-/**
- * Turn anything thrown by a route into `{ error: "<sentence>" }`, which is what
- * the frontend's `ApiError` reads. AWS failures become 404 or 502; the rest 500.
- */
+/** Anything thrown becomes `{ error }`, which the frontend's `ApiError` reads. */
 export function onError(err: Error, c: Context): Response {
   if (err instanceof HTTPException) return c.json({ error: err.message || "Request failed" }, err.status);
 

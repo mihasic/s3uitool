@@ -22,8 +22,8 @@ bun metrics.ts /tmp/py.json /tmp/ts.json
 
 **The TypeScript version is easier to read correctly, and harder to skim.**
 
-Python is denser: 461 code lines against 678 for the same 19 endpoints. If you
-measure reading effort in lines, Python wins by 47%. But 46 of those Python lines
+Python is denser: 461 code lines against 654 for the same 19 endpoints. If you
+measure reading effort in lines, Python wins by 42%. But 46 of those Python lines
 are `response["Contents"]`-style dictionary access into values the type checker
 knows nothing about — sites where the code asserts a shape the reader has to
 verify against AWS documentation. TypeScript has **zero**. That is the whole
@@ -42,41 +42,40 @@ is the right trade. For a codebase full of algorithmic logic, it would not be.
 
 | metric | python | hono |
 |---|---:|---:|
-| source files | 5 | 10 |
-| total lines | 627 | 917 |
-| code lines | 461 | 678 |
-| comment lines | 15 | 103 |
-| comment density | 2.4% | 11.2% |
-| largest file | 386 | 410 |
-| imported names | 37 | 64 |
-| type declarations | 14 | 13 |
+| source files | 5 | 11 |
+| total lines | 627 | 850 |
+| code lines | 461 | 654 |
+| comment lines | 15 | 61 |
+| comment density | 2.4% | 7.2% |
+| largest file | 386 | 394 |
+| imported names | 37 | 57 |
+| type declarations | 14 | 5 |
 | `Any` / `any` occurrences | **14** | **0** |
 | stringly-typed access `x["k"]` / `.get("k")` | **46** | **0** |
 
-Read this carefully, because the headline "TS is 47% longer" is misleading in
+Read this carefully, because the headline "TS is 42% longer" is misleading in
 both directions.
 
-**Where the extra 217 lines went** (measured, not estimated):
+**Where the extra 193 lines went** (measured, not estimated):
 
-- **+88 comment lines.** Nearly half the gap. The TypeScript version explains
-  itself far more, partly because a port has more to explain and partly because
-  the AWS SDK's sharp edges (credential precedence, path-style addressing) needed
-  documenting at the call site. Real lines to scroll past; not real complexity.
-- **+5 files.** `main.py` (93 lines, doing app wiring + error mapping + static
+- **+46 comment lines.** A quarter of the gap. The AWS SDK's sharp edges
+  (credential precedence, path-style addressing) needed documenting at the call
+  site. Real lines to scroll past; not real complexity.
+- **+6 files.** `main.py` (93 lines, doing app wiring + error mapping + static
   serving + path-traversal defence) became `app.ts` + `errors.ts` + `static.ts` +
-  `index.ts`, each under 50 lines and each doing one thing.
-- **+122 lines for `model.ts`**, which is the runtime half of what
-  `response_model=` gave for free (below).
+  `cors.ts` + `index.ts`, each under 50 lines and each doing one thing.
+- **+91 lines for `zip.ts`**, which streams the archive with backpressure where
+  the Python version buffered it into a temp file.
 - **~40 lines of SDK ceremony**: `await s3.send(new ListObjectsV2Command({...}))`
   against `s3.list_objects_v2(...)`.
 
-The last two are the honest cost. The first two are arguably credits.
+Only the last is pure cost.
 
-### The 14 type declarations vs 13
+### The 14 type declarations vs 5
 
-Python has 13 Pydantic models plus a `Settings` class. TypeScript reached the
-same count only after `model.ts` was written; before that it had 4 type aliases
-and a lot of hand-written `?? ""`. That is the whole lesson of this section:
+Python has 13 Pydantic models plus a `Settings` class; those declarations are
+*load-bearing* — at runtime they validate, coerce and project. A TypeScript
+`type` is erased. That difference is the whole lesson of this section:
 
 ```python
 class ObjectList(BaseModel):          # 6 lines. At runtime this validates,
@@ -102,24 +101,24 @@ not. **This is the single biggest structural difference between the two
 languages here**, and pretending otherwise is how a TypeScript port ends up
 leaking raw SDK objects into responses.
 
-`api/src/model.ts` closes the gap — 122 lines that make a declaration
-load-bearing again:
+The answer is the same one Python used: reach for a library. `zod` restores a
+load-bearing declaration in the same number of lines Pydantic needed:
 
 ```ts
-const objectListModel = model({
-  Objects: listOf(s3ObjectModel),
-  CommonPrefixes: withDefault(listOf(model({ Prefix: withDefault(str, "") })), []),
-  Prefix: str,
-  NextContinuationToken: nullable(str),
-  IsTruncated: withDefault(bool, false),
+const objectListModel = z.object({
+  Objects: z.array(s3ObjectModel),
+  CommonPrefixes: z.array(z.object({ Prefix: z.string().default("") })).default([]),
+  Prefix: z.string(),
+  NextContinuationToken: nullable(z.string()),
+  IsTruncated: z.boolean().default(false),
 });
 ```
 
-From that one declaration you get the response type, the (looser) type a handler
-must supply, and a runtime projection that drops unknown keys and applies
-defaults. Handlers end in `respondWith(objectListModel, {...})`, so renaming a
-field in one place and not the other is a compile error. It costs 122 lines that
-Python got from a library — but it is a library-shaped 122 lines, written once.
+`z.infer` gives the response type, `z.input` gives the looser type a handler must
+supply, and `.parse()` drops unknown keys and applies defaults. Handlers end in
+`respondWith(objectListModel, {...})`, so renaming a field in one place and not
+the other is a compile error. `api/src/model.ts` is 17 lines: two helpers and
+`respondWith`. Everything else is zod.
 
 ---
 
@@ -130,20 +129,20 @@ equivalent a counter can see, so they are excluded throughout.
 
 | metric | python | hono |
 |---|---:|---:|
-| functions | 31 | 45 |
-| mean lines / function | 12.9 | 13.5 |
+| functions | 31 | 41 |
+| mean lines / function | 12.9 | 14.2 |
 | p90 lines / function | 26 | 30 |
 | longest function | 43 | 68 |
-| mean cyclomatic | 2.7 | **2.5** |
+| mean cyclomatic | 2.7 | 2.7 |
 | p90 cyclomatic | 5 | 6 |
 | max cyclomatic | 9 | **8** |
 | functions with cc > 5 | 2 | 5 |
-| mean max-nesting | 0.97 | **0.62** |
+| mean max-nesting | 0.97 | **0.71** |
 | deepest nesting | 4 | **3** |
-| mean params | 1.68 | **1.24** |
+| mean params | 1.68 | **1.27** |
 
-Function size and average complexity are a **dead heat**: 12.9 vs 13.5 lines,
-2.7 vs 2.5 mean cyclomatic. Neither codebase has a monster. TypeScript's longest
+Function size and average complexity are a **dead heat**: 12.9 vs 14.2 lines,
+2.7 vs 2.7 mean cyclomatic. Neither codebase has a monster. TypeScript's longest
 function (68 lines) is `zipStream`, which is one `ReadableStream` literal with
 its `pull`/`cancel` callbacks — long by line count, trivial to read.
 
@@ -352,8 +351,8 @@ dep purely for `TestClient`), and the suite runs in 0.3 s.
 - **Density.** `s3_routes.py` fits eleven endpoints in 386 lines with room to
   spare. It reads fast.
 - **`response_model` is genuinely excellent.** One argument gives you
-  validation, coercion, field projection, key ordering, and `/docs`. Matching it
-  cost 122 lines of `model.ts` — and `/docs` is still gone.
+  validation, coercion, field projection and `/docs` from one argument. `zod` +
+  `respondWith` matches all of that except `/docs`, which is still gone.
 - **Keyword arguments beat positional.** `fetch_objects(s3, bucket, prefix,
   continuation_token=..., max_keys=...)` is more readable at the call site than
   `fetchObjects(s3, bucket, prefix, token, maxKeys, filterText, delimiter)` with
@@ -369,11 +368,11 @@ dep purely for `TestClient`), and the suite runs in 0.3 s.
 
 **Done since this was written:**
 
-- **`respondWith(schema, value)`** (`api/src/model.ts`). One declaration per
-  response shape now yields the output type, the input type a handler must
-  supply, and a runtime projection that drops unknown keys and applies defaults
-  — the three jobs `response_model=` did. Handlers lost every `?? ""` and can no
-  longer leak a raw SDK object. 122 lines, 8 tests.
+- **`respondWith(schema, value)`** (`api/src/model.ts`, 17 lines over zod). One
+  declaration per response shape yields the output type, the input type a handler
+  must supply, and a runtime parse that drops unknown keys and applies defaults —
+  the three jobs `response_model=` did. Handlers lost every `?? ""` and can no
+  longer leak a raw SDK object.
 - **Dropped FastAPI wire-compatibility.** The frontend is the only client, so
   `cors.ts` (34 lines mirroring Starlette's preflight), `serialize.ts`
   (pydantic's microsecond ISO format, `urllib.parse.quote`'s escaping), the

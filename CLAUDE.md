@@ -24,7 +24,7 @@ The frontend proxies `/api` requests to the backend during development. In produ
 | Layer | Technologies |
 |-------|-------------|
 | Frontend | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Radix UI, TanStack Query v5, Monaco Editor |
-| Backend | Bun, Hono 4, AWS SDK v3 (`@aws-sdk/client-s3`, `client-sqs`, `lib-storage`), fflate |
+| Backend | Bun, Hono 4, AWS SDK v3 (`@aws-sdk/client-s3`, `client-sqs`, `lib-storage`), zod, fflate |
 | Tooling | Bun (runtime + package manager + workspace + test runner), Biome (lint+format), TypeScript (type checking) |
 | Testing | `bun test` (API integration), Playwright (E2E) |
 | CI | GitHub Actions |
@@ -107,9 +107,10 @@ docker compose up -d --build
 │   │   ├── config.ts           # Env settings
 │   │   ├── aws.ts              # Cached SDK v3 clients (env credentials, path-style S3)
 │   │   ├── errors.ts           # AWS error → HTTP mapping, `{error: ...}` responses
-│   │   ├── model.ts            # Response models: projection + defaults + types
+│   │   ├── model.ts            # zod helpers + respondWith()
+│   │   ├── cors.ts             # CORS incl. Chrome private-network preflight
+│   │   ├── zip.ts              # Streaming zip (fflate container + native deflate)
 │   │   ├── static.ts           # Static file resolution with traversal guard
-│   │   ├── zip.ts              # Streaming zip (fflate)
 │   │   ├── s3.ts               # S3 API endpoints
 │   │   └── sqs.ts              # SQS API endpoints
 │   ├── tests/                  # `bun test` integration tests against local emulators
@@ -159,8 +160,9 @@ docker compose up -d --build
 - **Type checking**: `tsc -b` in strict mode, `noUnusedLocals`/`noUnusedParameters`/`erasableSyntaxOnly`
 - **Routes**: one `Hono()` sub-app per service, mounted at `/api/s3` and `/api/sqs`
 - **Path params spanning slashes**: `:key{.+}` (Hono decodes `%2F` like Starlette's `:path`)
-- **Responses**: build them with `respondWith(someModel, {...})` from `model.ts`, never
-  `c.json(sdkResponse)` — the model drops unknown keys, applies defaults and types the input
+- **Responses**: build them with `respondWith(someZodSchema, {...})` from `model.ts`, never
+  `c.json(sdkResponse)` — zod drops unknown keys, applies defaults and types the input
+- **Imports**: no `.ts` extension on relative imports
 - **Errors**: throw; `onError` maps AWS SDK exceptions to `{error: "<sentence>"}` with 404/502.
   The frontend's `ApiError` reads that `error` field, so keep it a complete sentence
 - **Config**: `src/config.ts` reads env vars only; the dev script passes `--env-file=../.env`
