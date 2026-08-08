@@ -22,10 +22,7 @@
       "request": "launch",
       "cwd": "${workspaceFolder}/app",
       "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "console": "integratedTerminal"
     },
     {
@@ -39,11 +36,7 @@
   "compounds": [
     {
       "name": "Full Stack",
-      "configurations": [
-        "API: Hono",
-        "APP: Dev Server",
-        "APP: Chrome"
-      ]
+      "configurations": ["API: Hono", "APP: Dev Server", "APP: Chrome"]
     }
   ]
 }

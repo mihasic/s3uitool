@@ -1,11 +1,3 @@
 {
-  "app/**/*.{js,ts,tsx}": [
-    "cd app && bunx @biomejs/biome check --write --no-errors-on-unmatched"
-  ],
-  "app/**/*.{css,json}": [
-    "cd app && bunx @biomejs/biome check --write --no-errors-on-unmatched"
-  ],
-  "api/**/*.{ts,json}": [
-    "cd api && bunx @biomejs/biome check --write --no-errors-on-unmatched"
-  ]
+  "*.{js,ts,tsx,css,json}": ["biome check --write --no-errors-on-unmatched"]
 }

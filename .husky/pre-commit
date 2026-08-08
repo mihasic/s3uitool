@@ -4,12 +4,5 @@ set -e
 
 bunx lint-staged
 
-echo "Running Type Checks..."
-
-# Frontend
-echo "Frontend (tsc)..."
-(cd app && bunx tsc -b)
-
-# Backend
-echo "Backend (tsc)..."
-(cd api && bunx tsc -b)
+echo "Type checking..."
+bunx tsc -b

@@ -1,10 +1,12 @@
 {
   "name": "s3uitool",
   "devDependencies": {
+    "@biomejs/biome": "^2.5.7",
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0"
+    "lint-staged": "^17.3.0",
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "@babel/core": "^8.0.1",
@@ -17,21 +19,14 @@
     "dev:app": "bun run --filter app dev",
     "dev:api": "bun run --filter api dev",
     "build": "bun run --filter app build",
-    "fix": "concurrently \"bun run fix:app\" \"bun run fix:api\" --names \"APP,API\" --prefix-colors \"green,blue\"",
-    "fix:app": "bun run --filter app fix",
-    "fix:api": "bun run --filter api fix",
-    "lint": "bun run --filter app lint",
-    "lint:api": "bun run --filter api lint",
-    "check": "concurrently \"bun run check:app\" \"bun run check:api\" --names \"APP,API\" --prefix-colors \"green,blue\"",
-    "check:app": "bun run --filter app check",
-    "check:api": "bun run --filter api check",
-    "typecheck": "concurrently \"bun run typecheck:app\" \"bun run typecheck:api\" --names \"APP,API\" --prefix-colors \"green,blue\"",
-    "typecheck:app": "bun run --filter app typecheck",
-    "typecheck:api": "bun run --filter api typecheck",
+    "lint": "biome lint .",
+    "fix": "biome check --write .",
+    "check": "biome ci .",
+    "typecheck": "tsc -b",
     "test:app": "bun run --filter app test",
+    "test:api": "bun run --filter api test",
     "test:e2e": "bun run --filter e2e test",
     "test:e2e:ui": "bun run --filter e2e test --ui",
-    "test:api": "bun run --filter api test",
     "seed": "bun run --filter api seed",
     "prepare": "husky"
   },

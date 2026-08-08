@@ -24,7 +24,7 @@ The frontend proxies `/api` requests to the backend during development. In produ
 |-------|-------------|
 | Frontend | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Radix UI, TanStack Query v5, Monaco Editor |
 | Backend | Bun, Hono 4, AWS SDK v3 (`@aws-sdk/client-s3`, `client-sqs`, `lib-storage`), zod, fflate |
-| Tooling | Bun (runtime + package manager + workspace + test runner), Biome (lint+format), TypeScript (type checking) |
+| Tooling | Bun (runtime + package manager + workspace + test runner), Biome (lint+format), TypeScript (type checking). One `biome.json` and one `tsconfig.json` at the root cover every workspace. |
 | Testing | `bun test` (API integration), Playwright (E2E) |
 | CI | GitHub Actions |
 
@@ -52,24 +52,10 @@ bun run seed
 ### Linting & Formatting
 
 ```bash
-# Lint frontend / backend (Biome)
-bun run lint
-bun run lint:api
-
-# Auto-fix (Biome)
-bun run fix:app
-bun run fix:api
-bun run fix          # both
-
-# Biome CI check (no writes)
-bun run check        # both
-bun run check:app
-bun run check:api
-
-# Type check (tsc)
-bun run typecheck    # both
-bun run typecheck:app
-bun run typecheck:api
+bun run lint        # Biome lint, whole repo
+bun run fix         # Biome lint + format, writes
+bun run check       # Biome CI check, no writes
+bun run typecheck   # tsc -b across app and api
 ```
 
 ### Testing
@@ -125,7 +111,6 @@ docker compose up -d --build
 │   │   ├── lib/                # Utilities (api client, config, file-utils)
 │   │   ├── types/              # TypeScript interfaces (s3.ts, config.ts)
 │   │   └── contexts/           # React Context providers (ConfigContext)
-│   ├── biome.json              # Biome lint/format config
 │   ├── tsconfig.json           # TypeScript config (strict mode)
 │   └── vite.config.ts          # Vite config (proxy, React compiler, Tailwind)
 │
@@ -133,6 +118,8 @@ docker compose up -d --build
 │   ├── tests/
 │   └── playwright.config.ts
 │
+├── biome.json                  # Single Biome config for every workspace
+├── tsconfig.json               # Solution file referencing app/ and api/
 ├── docker-compose.yml          # Local dev stack (RustFS + ElasticMQ + app)
 ├── Dockerfile                  # Multi-stage build (shared deps → frontend + bundle → bun:1-slim)
 ├── .husky/pre-commit           # Pre-commit: lint-staged + tsc (app) + tsc (api)
@@ -154,7 +141,7 @@ docker compose up -d --build
 
 ### Backend (TypeScript/Hono)
 
-- **Formatter**: Biome, same config as the frontend (2-space, 120 width, double quotes)
+- **Formatter**: Biome, one root config (2-space, 120 width, double quotes)
 - **Type checking**: `tsc -b` in strict mode, `noUnusedLocals`/`noUnusedParameters`/`erasableSyntaxOnly`
 - **Routes**: one `Hono()` sub-app per service, mounted at `/api/s3` and `/api/sqs`
 - **Path params spanning slashes**: `:key{.+}` (Hono decodes `%2F` like Starlette's `:path`)
@@ -175,8 +162,7 @@ docker compose up -d --build
 
 The pre-commit hook runs:
 1. **lint-staged**: Biome auto-fix on JS/TS/CSS/JSON files
-2. **TypeScript check**: `tsc -b` in `app/`
-3. **TypeScript check**: `tsc -b` in `api/`
+2. **TypeScript check**: `tsc -b` at the root, covering both workspaces
 
 All checks must pass before a commit is accepted.
 
@@ -206,10 +192,8 @@ Endpoint precedence: service-specific (`AWS_S3_ENDPOINT_URL` / `AWS_SQS_ENDPOINT
 ## CI Pipeline
 
 GitHub Actions runs on push/PR to `main`:
-1. **api-check**: Biome check, `tsc -b`, dependency audit
-2. **api-test**: `bun test` against RustFS + ElasticMQ
-3. **app-check**: Biome check, unit tests, Vite build, dependency audit
-4. **e2e-check**: Docker compose up, wait for health, seed, Playwright tests
+1. **build**: Biome check, `tsc -b`, unit tests, API tests against RustFS + ElasticMQ, Vite build, dependency audit
+2. **e2e**: Docker compose up, wait for health, seed, Playwright tests
 
 ## Release Process
 
