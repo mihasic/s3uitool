@@ -10,7 +10,7 @@ emulators, then adopted: the Python `api/` was deleted and the TypeScript port t
 > CORS defaults, no 405 emulation).
 
 Machine: Apple Silicon, Rancher Desktop 29.6.2, Bun 1.3.14, Python 3.14.
-Raw output: `results-*.txt`. Harness: see `README.md` in this directory.
+The side-by-side harness was removed once the swap was done; these numbers are the record.
 
 ---
 
@@ -136,7 +136,7 @@ Where Python wins:
 `zipfile` uses C zlib; `fflate` was pure JS on the event loop. **Superseded:** the
 zip writer now uses Bun's native `CompressionStream("deflate-raw")` with fflate
 only writing the container, which is 1.8–2.5× faster than fflate, 8% smaller on
-real text, and never stalls the event loop. See `results-zip-writers.txt`.
+real text, and never stalls the event loop. See `zip-writer-benchmarks.txt`.
 
 Starlette spools multipart bodies to disk above 1 MiB; Bun buffers them in memory.
 `MAX_UPLOAD_MB` (default 512) now caps this so a huge upload returns 413 instead of
@@ -236,5 +236,5 @@ These are the things that would silently break a naive port. All are handled in
    `delete-prefix`, `batch`, `send message`) — cheap, and restores the one real
    safety property Pydantic provided.
 3. ~~Move zip compression off the event loop.~~ Done: native `CompressionStream`.
-   `client-zip` was evaluated and rejected — see `results-zip-writers.txt`.
+   `client-zip` was evaluated and rejected — see `zip-writer-benchmarks.txt`.
 4. Consider `oven/bun:1-distroless` for the runtime stage to shave the Debian base.

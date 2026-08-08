@@ -12,7 +12,7 @@ Full-stack monorepo with two layers:
 - **Backend** (`api/`): TypeScript + Hono on Bun + AWS SDK v3
 - **E2E Tests** (`e2e/`): Playwright
 
-The backend was ported from Python/FastAPI in 2026-08; `experiment/REPORT.md` records
+The backend was ported from Python/FastAPI in 2026-08; `docs/backend-port.md` records
 the comparison and the porting gotchas (AWS credential precedence, S3 path-style
 addressing, upload buffering). The API no longer aims for FastAPI wire-compatibility —
 the frontend in `app/` is the only client, so the two evolve together.
@@ -134,7 +134,7 @@ docker compose up -d --build
 │   ├── tests/
 │   └── playwright.config.ts
 │
-├── experiment/                 # FastAPI ↔ Hono comparison harness + REPORT.md
+├── docs/                       # Backend port write-ups and benchmarks
 ├── docker-compose.yml          # Local dev stack (RustFS + ElasticMQ + app)
 ├── Dockerfile                  # Multi-stage build (shared deps → frontend + bundle → bun:1-slim)
 ├── .husky/pre-commit           # Pre-commit: lint-staged + tsc (app) + tsc (api)

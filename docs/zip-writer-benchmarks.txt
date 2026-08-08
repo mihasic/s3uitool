@@ -1,4 +1,4 @@
-Zip writer comparison — one 200 MiB object, same probe harness (experiment/zipstore-probe.ts),
+Zip writer comparison — one 200 MiB object, same probe harness (removed with the comparison harness),
 macOS `/usr/bin/time -l` maximum resident set size. Bun baseline ~40 MiB.
 
 writer                        content          archive bytes    maxRSS

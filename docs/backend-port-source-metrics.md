@@ -3,18 +3,11 @@
 A source-only comparison of the Python/FastAPI backend and the TypeScript/Hono
 one that replaced it: what it is like to open the code cold, find the thing you
 need to change, and change it correctly. No runtime numbers here — those are in
-`REPORT.md`.
+`backend-port.md`.
 
-Metrics come from `complexity.py` and `complexity.ts`, which implement the *same*
-definitions over each language's AST, rolled up by `metrics.ts`. Raw table:
-`results-source-metrics.md`. Reproduce with:
-
-```bash
-cd experiment && bun install
-python complexity.py <py-worktree>/api/src/*.py > /tmp/py.json
-bun complexity.ts ../api/src/*.ts               > /tmp/ts.json
-bun metrics.ts /tmp/py.json /tmp/ts.json
-```
+Metrics came from a pair of collectors implementing the *same* definitions over
+each language's AST (cyclomatic complexity, nesting, stringly-typed access). They
+were removed with the Python backend; the tables below are the record.
 
 ---
 
