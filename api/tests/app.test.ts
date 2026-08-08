@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app.ts";
-import { contentDisposition, isoUtc } from "../src/serialize.ts";
 import { resolveStaticFile } from "../src/static.ts";
 
 describe("app", () => {
@@ -22,7 +21,25 @@ describe("app", () => {
   test("404s unknown api routes as JSON", async () => {
     const res = await app.request("/api/nope");
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ detail: "Not Found" });
+    expect(await res.json()).toEqual({ error: "Not found" });
+  });
+
+  test("serves the SPA index with a usable Content-Type", async () => {
+    const res = await app.request("/");
+    expect(res.status).toBe(200);
+    // Browsers refuse to execute module scripts served without a MIME type.
+    expect(res.headers.get("content-type")).toStartWith("text/html");
+    expect(await res.text()).toContain("<title>app</title>");
+  });
+
+  test("serves static assets and falls back to the index for SPA routes", async () => {
+    const asset = await app.request("/assets/app.js");
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("content-type")).toStartWith("text/javascript");
+
+    const spaRoute = await app.request("/s3/documents");
+    expect(spaRoute.status).toBe(200);
+    expect(await spaRoute.text()).toContain("<title>app</title>");
   });
 
   test("echoes the origin for credentialed CORS", async () => {
@@ -49,28 +66,5 @@ describe("static file resolution", () => {
     expect(resolveStaticFile(staticDir, "/etc/passwd")).toBeNull();
     // Directories are not files.
     expect(resolveStaticFile(staticDir, ".")).toBeNull();
-  });
-});
-
-describe("serialization", () => {
-  test("formats UTC datetimes like pydantic", () => {
-    expect(isoUtc(new Date("2026-08-08T12:00:00.000Z"))).toBe("2026-08-08T12:00:00Z");
-    expect(isoUtc(new Date("2026-08-08T12:00:00.123Z"))).toBe("2026-08-08T12:00:00.123000Z");
-    expect(isoUtc(undefined)).toBeNull();
-  });
-
-  test("builds RFC 5987 Content-Disposition values", () => {
-    expect(contentDisposition("attachment", "plain.txt")).toBe(
-      "attachment; filename=\"plain.txt\"; filename*=UTF-8''plain.txt",
-    );
-    expect(contentDisposition("inline", 'we"ird.txt')).toBe(
-      "inline; filename=\"we'ird.txt\"; filename*=UTF-8''we%22ird.txt",
-    );
-    expect(contentDisposition("attachment", "ünïcode.txt")).toBe(
-      "attachment; filename=\"?n?code.txt\"; filename*=UTF-8''%C3%BCn%C3%AFcode.txt",
-    );
-    expect(contentDisposition("attachment", "a b(1)!.txt")).toBe(
-      "attachment; filename=\"a b(1)!.txt\"; filename*=UTF-8''a%20b%281%29%21.txt",
-    );
   });
 });

@@ -73,6 +73,6 @@ describe("sqs", () => {
   test("returns 404 for an unknown queue", async () => {
     const res = await app.request("/api/sqs/queues/no-such-queue-xyz/messages");
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ detail: "Queue not found" });
+    expect(await res.json()).toEqual({ error: "Queue not found" });
   });
 });

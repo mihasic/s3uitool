@@ -91,7 +91,8 @@ Endpoint precedence:
 
 ### Local Configuration (.env)
 
-Create a `.env` file in the project root to configure local S3/SQS endpoints for development:
+Create a `.env` file in the project root to configure local S3/SQS endpoints for development
+(the `dev:api` and `seed` scripts load it):
 
 ```dotenv
 AWS_S3_ENDPOINT_URL=http://localhost:9000

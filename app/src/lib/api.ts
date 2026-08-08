@@ -12,6 +12,18 @@ export class ApiError extends Error {
 // Default per-request timeout. Generous enough for uploads/downloads of modest files.
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** The API reports failures as `{ "error": "<sentence>" }`; fall back to the raw body. */
+async function errorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown };
+    if (typeof parsed.error === "string") return parsed.error;
+  } catch {
+    // Not JSON — a proxy or gateway error page, most likely.
+  }
+  return body || response.statusText;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
@@ -30,8 +42,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}, timeoutMs
     const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers, signal });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new ApiError(response.status, errorText || response.statusText);
+      throw new ApiError(response.status, await errorMessage(response));
     }
 
     // Handle 204 No Content

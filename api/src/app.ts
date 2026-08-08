@@ -1,9 +1,9 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { settings } from "./config.ts";
-import { cors } from "./cors.ts";
-import { detailResponse, httpError, onError } from "./errors.ts";
+import { onError } from "./errors.ts";
 import { s3Routes } from "./s3.ts";
 import { sqsRoutes } from "./sqs.ts";
 import { resolveStaticFile } from "./static.ts";
@@ -15,7 +15,9 @@ const STATIC_DIR = process.env.STATIC_DIR ?? "/app/static";
 
 export const app = new Hono();
 
-app.use("*", cors);
+// The UI is same-origin in production and behind Vite's proxy in dev; this only
+// matters when someone points VITE_API_URL at a different host.
+app.use("*", cors({ origin: (origin) => origin, credentials: true }));
 
 app.onError(onError);
 
@@ -27,27 +29,17 @@ app.get("/api/config", (c) => c.json({ s3: settings.enableS3, sqs: settings.enab
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.get("/*", (c) => {
-  const fullPath = decodeURIComponent(c.req.path).replace(/^\//, "");
-  if (/^(api\/|docs|redoc|openapi\.json)/.test(fullPath)) throw httpError(404, "Not Found");
+  const path = decodeURIComponent(c.req.path).replace(/^\//, "");
+  if (path.startsWith("api/")) return c.json({ error: "Not found" }, 404);
 
   const index = join(STATIC_DIR, "index.html");
-  if (!statSync(index, { throwIfNoEntry: false })?.isFile()) throw httpError(404, "Not Found");
+  if (!statSync(index, { throwIfNoEntry: false })?.isFile()) return c.json({ error: "Not found" }, 404);
 
-  const target = resolveStaticFile(STATIC_DIR, fullPath) ?? index;
-  const file = Bun.file(target);
-  // Starlette's FileResponse formats the media type as `text/html; charset=utf-8`.
-  return new Response(file, { headers: { "Content-Type": file.type.replace(/;(?=\S)/, "; ") } });
+  // Unknown paths fall back to index.html so the SPA router can handle them.
+  const file = Bun.file(resolveStaticFile(STATIC_DIR, path) ?? index);
+  // `new Response(BunFile)` does not set a Content-Type, and browsers refuse to
+  // execute a module script served without one.
+  return new Response(file, { headers: { "Content-Type": file.type } });
 });
 
-const OTHER_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"];
-
-// Starlette answers 405 when a path is registered but the method is not; Hono's
-// router only reports "no match", so probe the other methods before giving up.
-app.notFound((c) => {
-  for (const method of OTHER_METHODS) {
-    if (method === c.req.method) continue;
-    const [handlers] = app.router.match(method, c.req.path);
-    if (handlers.length > 0) return detailResponse(405, "Method Not Allowed");
-  }
-  return detailResponse(404, "Not Found");
-});
+app.notFound((c) => c.json({ error: "Not found" }, 404));

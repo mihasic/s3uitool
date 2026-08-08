@@ -13,28 +13,57 @@ import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
 import { lookup as lookupMime } from "mime-types";
 import { getS3Client } from "./aws.ts";
-import { httpError } from "./errors.ts";
-import { contentDisposition, isoUtc } from "./serialize.ts";
-import { zipStream } from "./zip.ts";
+import {
+  bool,
+  dateTime,
+  type Input,
+  int,
+  listOf,
+  model,
+  nullable,
+  recordOf,
+  respondWith,
+  str,
+  stringMap,
+  withDefault,
+} from "./model.ts";
+import { type ZipEntry, zipStream } from "./zip.ts";
 
 const S3_DELETE_BATCH_SIZE = 1000;
 const BATCH_CONCURRENCY = 10;
 
-type S3Object = {
-  Key: string;
-  LastModified: string | null;
-  ETag: string;
-  Size: number;
-  StorageClass: string | null;
-};
+const bucketModel = model({
+  Name: withDefault(str, ""),
+  CreationDate: dateTime,
+});
 
-type ObjectList = {
-  Objects: S3Object[];
-  CommonPrefixes: { Prefix: string }[];
-  Prefix: string;
-  NextContinuationToken: string | null;
-  IsTruncated: boolean;
-};
+const s3ObjectModel = model({
+  Key: withDefault(str, ""),
+  LastModified: dateTime,
+  ETag: withDefault(str, ""),
+  Size: withDefault(int, 0),
+  StorageClass: nullable(str),
+});
+
+/** `S3Object` plus the decoded body. */
+const s3ObjectContentModel = model({
+  ...s3ObjectModel.shape,
+  ContentType: nullable(str),
+  Metadata: nullable(stringMap),
+  Content: nullable(str),
+});
+
+const objectListModel = model({
+  Objects: listOf(s3ObjectModel),
+  CommonPrefixes: withDefault(listOf(model({ Prefix: withDefault(str, "") })), []),
+  Prefix: str,
+  NextContinuationToken: nullable(str),
+  IsTruncated: withDefault(bool, false),
+});
+
+const objectListBatchModel = recordOf(objectListModel);
+
+type ObjectList = Input<typeof objectListModel>;
 
 type PrefixParams = {
   prefix: string;
@@ -56,23 +85,6 @@ async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): Asy
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);
-}
-
-/** Project a raw SDK object onto the fields FastAPI's `S3Object` response model exposes. */
-function toS3Object(obj: {
-  Key?: string;
-  LastModified?: Date;
-  ETag?: string;
-  Size?: number;
-  StorageClass?: string;
-}): S3Object {
-  return {
-    Key: obj.Key ?? "",
-    LastModified: isoUtc(obj.LastModified),
-    ETag: obj.ETag ?? "",
-    Size: obj.Size ?? 0,
-    StorageClass: obj.StorageClass ?? null,
-  };
 }
 
 async function fetchObjects(
@@ -97,39 +109,36 @@ async function fetchObjects(
 
   const response = await s3.send(new ListObjectsV2Command(input));
 
-  const objects: S3Object[] = [];
+  const objects: Input<typeof s3ObjectModel>[] = [];
   for (const obj of response.Contents ?? []) {
     // Skip the folder itself if it appears in contents
     if (obj.Key === prefix && prefix !== "") continue;
-    objects.push(toS3Object(obj));
+    objects.push(obj);
   }
 
   return {
     Objects: objects,
-    CommonPrefixes: (response.CommonPrefixes ?? []).map((p) => ({ Prefix: p.Prefix ?? "" })),
+    CommonPrefixes: response.CommonPrefixes,
     Prefix: prefix,
-    NextContinuationToken: response.NextContinuationToken ?? null,
-    IsTruncated: response.IsTruncated ?? false,
+    NextContinuationToken: response.NextContinuationToken,
+    IsTruncated: response.IsTruncated,
   };
 }
 
-/** Query-param coercion that mimics FastAPI's 422 on a non-integer value. */
-function intParam(raw: string | undefined, fallback: number): number {
-  if (raw === undefined) return fallback;
-  if (!/^-?\d+$/.test(raw.trim())) {
-    throw httpError(422, [
-      {
-        type: "int_parsing",
-        loc: ["query", "max_keys"],
-        msg: "Input should be a valid integer, unable to parse string as an integer",
-        input: raw,
-      },
-    ]);
-  }
-  return Number.parseInt(raw, 10);
+/** Build a Content-Disposition header that survives quotes and non-ASCII in keys (RFC 5987). */
+function contentDisposition(disposition: string, filename: string): string {
+  // Browsers prefer `filename*`; the plain `filename` is the ASCII-only fallback.
+  const ascii = filename.replace(/[^\x20-\x7e]/g, "?").replaceAll('"', "'");
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-/** Bound parallelism the way `ThreadPoolExecutor(max_workers=10)` does. */
+/** A non-numeric value falls back rather than failing the request. */
+function intParam(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/** Bound how many prefix lookups are in flight at once. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
@@ -143,14 +152,15 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results;
 }
 
-s3Routes.get("/buckets", async (c) => {
+s3Routes.get("/buckets", async () => {
   const response = await getS3Client().send(new ListBucketsCommand({}));
-  return c.json((response.Buckets ?? []).map((b) => ({ Name: b.Name ?? "", CreationDate: isoUtc(b.CreationDate) })));
+  return respondWith(listOf(bucketModel), response.Buckets ?? []);
 });
 
 s3Routes.get("/buckets/:bucket/objects", async (c) => {
   const q = c.req.query();
-  return c.json(
+  return respondWith(
+    objectListModel,
     await fetchObjects(
       getS3Client(),
       c.req.param("bucket"),
@@ -200,7 +210,7 @@ s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
   });
   for (const { prefix, value } of settled) results[prefix] = value;
 
-  return c.json(results);
+  return respondWith(objectListBatchModel, results);
 });
 
 s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
@@ -221,14 +231,14 @@ s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
     content = null; // Binary content
   }
 
-  return c.json({
+  return respondWith(s3ObjectContentModel, {
     Key: key,
-    LastModified: isoUtc(head.LastModified),
-    ETag: head.ETag ?? "",
-    Size: head.ContentLength ?? 0,
-    StorageClass: head.StorageClass ?? null,
-    ContentType: head.ContentType ?? null,
-    Metadata: head.Metadata ?? null,
+    LastModified: head.LastModified,
+    ETag: head.ETag,
+    Size: head.ContentLength,
+    StorageClass: head.StorageClass,
+    ContentType: head.ContentType,
+    Metadata: head.Metadata,
     Content: content,
   });
 });
@@ -243,8 +253,8 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
     const guessed = lookupMime(key);
     if (guessed) contentType = guessed;
   }
-
-  // Starlette appends a charset to textual media types.
+  // Without a charset the browser guesses, and `?inline=true` previews of UTF-8
+  // text render as mojibake.
   if (contentType.startsWith("text/") && !contentType.includes("charset=")) contentType += "; charset=utf-8";
 
   const disposition = c.req.query("inline") === "true" ? "inline" : "attachment";
@@ -262,9 +272,7 @@ s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
   const key = c.req.param("key");
   const form = await c.req.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) {
-    throw httpError(422, [{ type: "missing", loc: ["body", "file"], msg: "Field required", input: null }]);
-  }
+  if (!(file instanceof File)) return c.json({ error: "Expected a multipart body with a `file` field" }, 400);
 
   const contentType = file.type || lookupMime(key) || undefined;
   await new Upload({
@@ -365,21 +373,27 @@ s3Routes.get("/buckets/:bucket/download-prefix", async (c) => {
   const prefix = c.req.query("prefix") ?? "";
   const s3 = getS3Client();
 
-  async function* entries(): AsyncGenerator<{ name: string; data: Uint8Array }> {
+  async function* entries(): AsyncGenerator<ZipEntry> {
     for await (const key of allObjectKeys(s3, bucket, prefix)) {
       if (key.endsWith("/")) continue;
+
+      // Only the lookup is guarded: once bytes are flowing into the archive a
+      // failure has to surface, not silently truncate the file.
+      let body: ReadableStream<Uint8Array> | undefined;
       try {
         const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-        const data = (await obj.Body?.transformToByteArray()) ?? new Uint8Array();
-
-        let arcname = key.startsWith(prefix) ? key.slice(prefix.length) : key;
-        if (arcname.startsWith("/")) arcname = arcname.slice(1);
-        if (!arcname) arcname = key.split("/").pop() ?? key;
-
-        yield { name: arcname, data };
+        body = obj.Body?.transformToWebStream();
       } catch (e) {
         console.warn(`Error zipping ${key}: ${e}`);
+        continue;
       }
+      if (!body) continue;
+
+      let arcname = key.startsWith(prefix) ? key.slice(prefix.length) : key;
+      if (arcname.startsWith("/")) arcname = arcname.slice(1);
+      if (!arcname) arcname = key.split("/").pop() ?? key;
+
+      yield { name: arcname, data: body };
     }
   }
 

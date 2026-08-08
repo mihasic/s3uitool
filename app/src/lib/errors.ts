@@ -7,8 +7,9 @@ export function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
-/** Log an error and show a toast with a user-facing message. */
+/** Log an error and show a toast, with the API's explanation as the description. */
 export function reportError(userMessage: string, err: unknown): void {
   console.error(userMessage, err);
-  toast.error(userMessage);
+  const detail = getErrorMessage(err);
+  toast.error(userMessage, detail && detail !== userMessage ? { description: detail } : undefined);
 }

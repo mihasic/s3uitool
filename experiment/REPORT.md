@@ -3,6 +3,12 @@
 Full port of the backend, measured side by side against the same RustFS + ElasticMQ
 emulators, then adopted: the Python `api/` was deleted and the TypeScript port took its place at `api/`.
 
+> **Historical.** The parity numbers below describe the port at the moment of the
+> swap. The API has since dropped FastAPI wire-compatibility on purpose — the
+> frontend is its only client — so `parity.ts` will now report expected diffs
+> (`{error: ...}` instead of `{detail: ...}`, plain ISO timestamps, Hono's own
+> CORS defaults, no 405 emulation).
+
 Machine: Apple Silicon, Rancher Desktop 29.6.2, Bun 1.3.14, Python 3.14.
 Raw output: `results-*.txt`. Harness: see `README.md` in this directory.
 
@@ -228,5 +234,6 @@ These are the things that would silently break a naive port. All are handled in
 2. Add `zod` validation for the four JSON request bodies (`copy`, `copy-prefix`,
    `delete-prefix`, `batch`, `send message`) — cheap, and restores the one real
    safety property Pydantic provided.
-3. Move zip compression to a `Worker` if bulk downloads become common.
+3. Move zip compression to a `Worker` if bulk downloads become common. See
+   `results-zip-writers.txt` for why `client-zip` was evaluated and rejected.
 4. Consider `oven/bun:1-distroless` for the runtime stage to shave the Debian base.

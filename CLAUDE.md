@@ -14,7 +14,8 @@ Full-stack monorepo with two layers:
 
 The backend was ported from Python/FastAPI in 2026-08; `experiment/REPORT.md` records
 the comparison and the porting gotchas (AWS credential precedence, S3 path-style
-addressing, upload buffering).
+addressing, upload buffering). The API no longer aims for FastAPI wire-compatibility —
+the frontend in `app/` is the only client, so the two evolve together.
 
 The frontend proxies `/api` requests to the backend during development. In production, both are served from a single Docker container (the Hono app serves the built frontend as static files).
 
@@ -103,11 +104,10 @@ docker compose up -d --build
 │   ├── src/
 │   │   ├── index.ts            # Bun.serve entry (port, body cap, idle timeout)
 │   │   ├── app.ts              # Hono app: CORS, routes, static serving, 404/405
-│   │   ├── config.ts           # Env + .env settings
+│   │   ├── config.ts           # Env settings
 │   │   ├── aws.ts              # Cached SDK v3 clients (env credentials, path-style S3)
-│   │   ├── errors.ts           # AWS error → HTTP mapping, `{detail: ...}` responses
-│   │   ├── cors.ts             # Starlette-equivalent CORS middleware
-│   │   ├── serialize.ts        # pydantic-compatible ISO dates, RFC 5987 filenames
+│   │   ├── errors.ts           # AWS error → HTTP mapping, `{error: ...}` responses
+│   │   ├── model.ts            # Response models: projection + defaults + types
 │   │   ├── static.ts           # Static file resolution with traversal guard
 │   │   ├── zip.ts              # Streaming zip (fflate)
 │   │   ├── s3.ts               # S3 API endpoints
@@ -159,8 +159,11 @@ docker compose up -d --build
 - **Type checking**: `tsc -b` in strict mode, `noUnusedLocals`/`noUnusedParameters`/`erasableSyntaxOnly`
 - **Routes**: one `Hono()` sub-app per service, mounted at `/api/s3` and `/api/sqs`
 - **Path params spanning slashes**: `:key{.+}` (Hono decodes `%2F` like Starlette's `:path`)
-- **Errors**: throw; `onError` maps AWS SDK exceptions to `{detail: ...}` with 404/502
-- **Config**: `src/config.ts` reads env vars and `.env` / `../.env`
+- **Responses**: build them with `respondWith(someModel, {...})` from `model.ts`, never
+  `c.json(sdkResponse)` — the model drops unknown keys, applies defaults and types the input
+- **Errors**: throw; `onError` maps AWS SDK exceptions to `{error: "<sentence>"}` with 404/502.
+  The frontend's `ApiError` reads that `error` field, so keep it a complete sentence
+- **Config**: `src/config.ts` reads env vars only; the dev script passes `--env-file=../.env`
 - **AWS clients**: always go through `getS3Client()` / `getSqsClient()` — they pin env
   credentials (the JS chain would otherwise prefer `AWS_PROFILE`) and force path-style S3
 

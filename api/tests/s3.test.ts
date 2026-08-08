@@ -57,13 +57,13 @@ describe("s3", () => {
     // A missing key maps to 404 via the central AWS error handler, not 500.
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/does-not-exist.txt`);
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ detail: "Not found" });
+    expect(await res.json()).toEqual({ error: "Not found" });
   });
 
   test("returns 404 for a missing bucket", async () => {
     const res = await app.request("/api/s3/buckets/no-such-bucket-xyz/objects");
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ detail: "Bucket not found" });
+    expect(await res.json()).toEqual({ error: "Bucket not found" });
   });
 
   test("reports binary content as null", async () => {
@@ -103,9 +103,9 @@ describe("s3", () => {
     expect(page2.Objects[0]?.Key).not.toBe((page.Objects[0] as { Key: string }).Key);
   });
 
-  test("rejects a non-integer max_keys with 422", async () => {
+  test("falls back to the default when max_keys is not a number", async () => {
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects?max_keys=abc`);
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(200);
   });
 
   test("resolves a batch of prefixes in one call", async () => {
@@ -130,6 +130,16 @@ describe("s3", () => {
 
     const inline = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}?inline=true`);
     expect(inline.headers.get("content-disposition")?.startsWith("inline;")).toBe(true);
+    expect(inline.headers.get("content-type")).toStartWith("text/plain");
+  });
+
+  test("keeps quotes and non-ASCII out of the ASCII Content-Disposition fallback", async () => {
+    const key = 'odd/wé"ird ünïcode.txt';
+    await put(key, "x");
+    const res = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}`);
+    expect(res.headers.get("content-disposition")).toBe(
+      `attachment; filename="w?'ird ?n?code.txt"; filename*=UTF-8''${encodeURIComponent('wé"ird ünïcode.txt')}`,
+    );
   });
 
   test("copies and moves objects", async () => {

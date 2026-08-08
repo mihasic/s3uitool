@@ -9,6 +9,20 @@ import {
 } from "@aws-sdk/client-sqs";
 import { Hono } from "hono";
 import { getSqsClient } from "./aws.ts";
+import { listOf, model, nullable, respondWith, str, stringMap, withDefault } from "./model.ts";
+
+const queueModel = model({
+  Url: str,
+  Name: str,
+});
+
+const messageModel = model({
+  MessageId: withDefault(str, ""),
+  ReceiptHandle: withDefault(str, ""),
+  Body: withDefault(str, ""),
+  MD5OfBody: withDefault(str, ""),
+  Attributes: nullable(stringMap),
+});
 
 export const sqsRoutes = new Hono();
 
@@ -17,15 +31,11 @@ async function queueUrl(sqs: SQSClient, name: string): Promise<string> {
   return response.QueueUrl ?? "";
 }
 
-sqsRoutes.get("/queues", async (c) => {
+sqsRoutes.get("/queues", async () => {
   const response = await getSqsClient().send(new ListQueuesCommand({}));
-  return c.json(
-    (response.QueueUrls ?? []).map((url) => ({
-      Url: url,
-      Name: url.split("/").pop() ?? url,
-      // Optionally fetch attributes here if needed, but keeping it simple for list
-      Attributes: null,
-    })),
+  return respondWith(
+    listOf(queueModel),
+    (response.QueueUrls ?? []).map((url) => ({ Url: url, Name: url.split("/").pop() ?? url })),
   );
 });
 
@@ -42,15 +52,7 @@ sqsRoutes.get("/queues/:queueName/messages", async (c) => {
     }),
   );
 
-  return c.json(
-    (response.Messages ?? []).map((msg) => ({
-      MessageId: msg.MessageId ?? "",
-      ReceiptHandle: msg.ReceiptHandle ?? "",
-      Body: msg.Body ?? "",
-      MD5OfBody: msg.MD5OfBody ?? "",
-      Attributes: msg.Attributes ?? null,
-    })),
-  );
+  return respondWith(listOf(messageModel), response.Messages ?? []);
 });
 
 sqsRoutes.post("/queues/:queueName/messages", async (c) => {

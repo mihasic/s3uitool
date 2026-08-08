@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun --env-file=../.env --watch src/index.ts",
     "start": "bun src/index.ts",
     "build": "bun build src/index.ts --target=bun --outfile=dist/server.js",
-    "seed": "bun scripts/seed-data.ts",
+    "seed": "bun --env-file=../.env scripts/seed-data.ts",
     "test": "bun test",
     "lint": "biome lint .",
     "fix": "biome check --write .",

@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type BucketLocationConstraint, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { CreateQueueCommand, SQSClient } from "@aws-sdk/client-sqs";
 
@@ -10,6 +13,13 @@ process.env.AWS_SQS_ENDPOINT_URL ||= "http://localhost:19324";
 process.env.AWS_DEFAULT_REGION ||= "eu-west-1";
 process.env.AWS_ACCESS_KEY_ID ||= "test";
 process.env.AWS_SECRET_ACCESS_KEY ||= "test";
+
+// A stand-in for the built frontend, so the static routes are exercised too.
+export const STATIC_FIXTURE = mkdtempSync(join(tmpdir(), "s3uitool-static-"));
+mkdirSync(join(STATIC_FIXTURE, "assets"));
+writeFileSync(join(STATIC_FIXTURE, "index.html"), "<!doctype html><title>app</title>");
+writeFileSync(join(STATIC_FIXTURE, "assets", "app.js"), "export default 1;\n");
+process.env.STATIC_DIR ||= STATIC_FIXTURE;
 
 const region = process.env.AWS_DEFAULT_REGION;
 // A developer shell may export AWS_PROFILE/AWS_REGION pointing at a real account;
