@@ -7,10 +7,7 @@ bun.lockb
 
 # IDE
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
 !.vscode/launch.json
-!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -18,10 +15,6 @@ bun.lockb
 # OS
 .DS_Store
 Thumbs.db
-
-# LocalStack/AWS
-.aws/
-aws-resources/
 
 # Environment
 .env

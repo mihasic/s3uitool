@@ -37,10 +37,3 @@ export function getSqsClient(): SQSClient {
   });
   return sqs;
 }
-
-export function resetClients(): void {
-  s3?.destroy();
-  sqs?.destroy();
-  s3 = undefined;
-  sqs = undefined;
-}

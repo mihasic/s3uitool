@@ -32,19 +32,18 @@ These are load-bearing — each one caused a real bug.
 - **AWS clients**: only via `getS3Client()` / `getSqsClient()`. They pin env credentials
   (the JS provider chain otherwise prefers `AWS_PROFILE` and signs against a *real*
   account) and force path-style S3 (the SDK defaults to virtual-host, which breaks
-  RustFS/MinIO).
+  RustFS).
 - **Errors**: throw. `onError` maps AWS exceptions to `{error: "<sentence>"}` with
   404/502. The frontend's `ApiError` renders that string, so keep it a full sentence.
 - **Zip** (`zip.ts`): native `CompressionStream` with fflate writing only the container,
   driven from `pull`. fflate's JS deflate stalled the event loop; buffering whole objects
-  peaked at 2.9 GB RSS for one 200 MiB file. `client-zip` was rejected — it never compresses.
+  peaked at 2.9 GB RSS for one 200 MiB file.
 - **Static files**: `new Response(Bun.file(p))` sets no Content-Type, and browsers refuse
   module scripts without one.
 - **Path params spanning `/`**: `:key{.+}`, which decodes `%2F`.
 - **Imports**: no `.ts` extension.
 
-The API targets no client but `app/`; the two change together. It is not
-FastAPI-compatible (it was ported from FastAPI in 2026-08 — see git history).
+The API targets no client but `app/`; the two change together.
 
 ## Frontend rules
 

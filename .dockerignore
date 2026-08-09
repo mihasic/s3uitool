@@ -3,20 +3,11 @@
 .dockerignore
 .github
 .vscode
-specs
 README.md
 docker-compose.yml
 
-# Build artifacts and caches — use **/ so nested copies (api/src/__pycache__,
-# app/node_modules, …) are excluded too, not just the context root.
+# Build artifacts — use **/ so nested copies (app/node_modules, api/dist, …) are
+# excluded too, not just the context root.
 **/node_modules
 **/dist
 **/build
-**/.venv
-**/venv
-**/__pycache__
-**/.pytest_cache
-**/.mypy_cache
-**/.ruff_cache
-**/.coverage
-**/htmlcov
