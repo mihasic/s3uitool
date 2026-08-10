@@ -8,6 +8,9 @@
   "files": {
     "ignoreUnknown": false
   },
+  "plugins": [
+    { "path": "./.biome/plugins/aws-clients.grit", "includes": ["**/api/src/**/*.ts", "!**/api/src/aws.ts"] }
+  ],
   "overrides": [
     {
       "includes": ["app/src/index.css"],
