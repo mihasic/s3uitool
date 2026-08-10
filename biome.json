@@ -18,6 +18,40 @@
       "formatter": { "enabled": false }
     },
     {
+      "includes": ["**/app/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["../**", "../*"], "message": "Reach outside the directory with the `@/` alias." }
+                ]
+              }
+            },
+            "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["kebab-case"] } }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/app/src/{components,contexts,pages}/*.tsx", "**/app/src/App.tsx"],
+      "linter": {
+        "rules": {
+          "style": { "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["PascalCase"] } } }
+        }
+      }
+    },
+    {
+      "includes": ["**/app/src/hooks/*.ts"],
+      "linter": {
+        "rules": {
+          "style": { "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["camelCase"] } } }
+        }
+      }
+    },
+    {
       "includes": ["**/*.d.ts"],
       "linter": { "enabled": false }
     }

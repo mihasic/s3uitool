@@ -27,8 +27,7 @@ The API targets no client but `app/`; the two change together.
 
 ## Frontend rules
 
-- `@/` alias for `app/src/`. PascalCase components, `use*` hooks, kebab-case utils.
-- TanStack Query for server state, `sonner` toasts via `reportError`, `ApiError` in `lib/api.ts`.
+TanStack Query for server state, `sonner` toasts via `reportError`, `ApiError` in `lib/api.ts`.
 
 ## Environment
 
