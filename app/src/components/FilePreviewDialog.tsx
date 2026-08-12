@@ -1,9 +1,18 @@
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { DocxViewer } from "@/components/DocxViewer";
-import { FileViewer } from "@/components/FileViewer";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getLanguageFromFilename } from "@/lib/file-utils";
+
+// Monaco and docx-preview are only reachable from this dialog, and together they are
+// most of the bundle — load them when a preview actually opens.
+const DocxViewer = lazy(() => import("@/components/DocxViewer").then((m) => ({ default: m.DocxViewer })));
+const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
+
+const spinner = (
+  <div className="flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+  </div>
+);
 
 interface SelectedFile {
   key: string;
@@ -60,9 +69,13 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
                 onLoad={() => setMediaLoaded(true)}
               />
             ) : file.isDocx ? (
-              <DocxViewer url={file.content} />
+              <Suspense fallback={spinner}>
+                <DocxViewer url={file.content} />
+              </Suspense>
             ) : (
-              <FileViewer content={file.content} onSave={onSave} language={getLanguageFromFilename(file.key)} />
+              <Suspense fallback={spinner}>
+                <FileViewer content={file.content} onSave={onSave} language={getLanguageFromFilename(file.key)} />
+              </Suspense>
             )}
           </div>
         )}

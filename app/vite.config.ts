@@ -15,7 +15,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   server: {
@@ -27,6 +27,10 @@ export default defineConfig({
     },
   },
   build: {
+    // Monaco is ~2.7 MB minified and cannot be split below that, but it now sits in an
+    // on-demand chunk behind the preview dialog, leaving the entry around 270 kB. The
+    // limit clears that floor so the warning stops firing for a deliberate chunk.
+    chunkSizeWarningLimit: 2800,
     rollupOptions: {
       output: {
         manualChunks(id) {

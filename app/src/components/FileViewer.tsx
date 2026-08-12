@@ -4,6 +4,8 @@ import type { editor } from "monaco-editor";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+// Registers the languages and hands Monaco to the loader before `<Editor>` mounts.
+import "@/lib/monaco-setup";
 
 interface FileViewerProps {
   content: string;
