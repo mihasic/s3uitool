@@ -1,7 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { AlignLeft, Minimize2, Save } from "lucide-react";
 import type { editor } from "monaco-editor";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 // Registers the languages and hands Monaco to the loader before `<Editor>` mounts.
@@ -11,6 +11,8 @@ interface FileViewerProps {
   content: string;
   language?: string;
   onSave?: (newContent: string) => void;
+  onChange?: (newContent: string) => void;
+  toolbarLeading?: ReactNode;
 }
 
 const formatXml = (xml: string) => {
@@ -44,7 +46,7 @@ const minifyXml = (xml: string) => {
     .trim();
 };
 
-export function FileViewer({ content, language = "plaintext", onSave }: FileViewerProps) {
+export function FileViewer({ content, language = "plaintext", onSave, onChange, toolbarLeading }: FileViewerProps) {
   const [value, setValue] = useState(content);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const isEditable = !!onSave;
@@ -106,7 +108,8 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
 
   return (
     <div className="h-full w-full flex flex-col gap-2">
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
+        {toolbarLeading && <div className="mr-auto">{toolbarLeading}</div>}
         {showTools && isEditable && (
           <>
             <Button variant="outline" size="sm" onClick={handleFormat} title={`Format ${language?.toUpperCase()}`}>
@@ -131,7 +134,10 @@ export function FileViewer({ content, language = "plaintext", onSave }: FileView
           height="100%"
           defaultLanguage={language}
           value={value}
-          onChange={(val) => setValue(val || "")}
+          onChange={(val) => {
+            setValue(val || "");
+            onChange?.(val || "");
+          }}
           onMount={handleEditorDidMount}
           options={{
             readOnly: !isEditable,

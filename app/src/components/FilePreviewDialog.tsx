@@ -1,12 +1,13 @@
 import { Loader2 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getLanguageFromFilename } from "@/lib/file-utils";
+import { getDualPreviewKind, getLanguageFromFilename } from "@/lib/file-utils";
 
 // Monaco and docx-preview are only reachable from this dialog, and together they are
 // most of the bundle — load them when a preview actually opens.
 const DocxViewer = lazy(() => import("@/components/DocxViewer").then((m) => ({ default: m.DocxViewer })));
 const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
+const DualPreview = lazy(() => import("@/components/DualPreview").then((m) => ({ default: m.DualPreview })));
 
 const spinner = (
   <div className="flex items-center justify-center">
@@ -38,6 +39,7 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
   }, [file?.key]);
 
   const showSpinner = !!file && (file.isImage || file.isPdf) && !mediaLoaded;
+  const dualKind = file ? getDualPreviewKind(file.key) : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -71,6 +73,10 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
             ) : file.isDocx ? (
               <Suspense fallback={spinner}>
                 <DocxViewer url={file.content} />
+              </Suspense>
+            ) : dualKind ? (
+              <Suspense fallback={spinner}>
+                <DualPreview fileKey={file.key} kind={dualKind} content={file.content} onSave={onSave} />
               </Suspense>
             ) : (
               <Suspense fallback={spinner}>

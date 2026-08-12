@@ -36,6 +36,39 @@ test.describe("S3 file operations", () => {
     await expect(page.getByRole("dialog").getByText("config.json")).toBeVisible();
   });
 
+  test("previews markdown rendered, then as code", async ({ page }) => {
+    await page.goto("/s3/documents?prefix=project/");
+    await page.getByRole("button", { name: "specs.md", exact: true }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "Rendered", exact: true })).toHaveAttribute("aria-pressed", "true");
+    const rendered = page.frameLocator('iframe[title="project/specs.md (rendered)"]');
+    await expect(rendered.getByRole("heading", { name: "Project Specifications" })).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Code", exact: true }).click();
+    await expect(dialog.locator(".monaco-editor")).toBeVisible();
+    await expect(page.locator('iframe[title="project/specs.md (rendered)"]')).toHaveCount(0);
+  });
+
+  test("previews an svg as an image and as source", async ({ page }) => {
+    await page.goto("/s3/images");
+    await page.getByRole("button", { name: "icon.svg", exact: true }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(page.frameLocator('iframe[title="icon.svg (rendered)"]').locator("svg circle")).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Code", exact: true }).click();
+    await expect(dialog.locator(".monaco-editor")).toBeVisible();
+  });
+
+  test("previews html rendered", async ({ page }) => {
+    await page.goto("/s3/documents?prefix=web/");
+    await page.getByRole("button", { name: "index.htm", exact: true }).click();
+
+    const rendered = page.frameLocator('iframe[title="web/index.htm (rendered)"]');
+    await expect(rendered.getByRole("heading", { name: "Hello World" })).toBeVisible();
+  });
+
   test("previews an image", async ({ page }) => {
     await page.goto("/s3/images");
     await page.getByRole("button", { name: "design.png", exact: true }).click();

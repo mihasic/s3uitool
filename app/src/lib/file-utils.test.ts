@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getParentPrefix } from "./file-utils";
+import { getDualPreviewKind, getParentPrefix } from "./file-utils";
 
 describe("getParentPrefix", () => {
   it("should return empty string for empty prefix", () => {
@@ -24,5 +24,27 @@ describe("getParentPrefix", () => {
 
   it("should return empty string for single file-like prefix", () => {
     expect(getParentPrefix("file")).toBe("");
+  });
+});
+
+describe("getDualPreviewKind", () => {
+  it("maps the markdown extensions", () => {
+    expect(getDualPreviewKind("notes.md")).toBe("markdown");
+    expect(getDualPreviewKind("notes.markdown")).toBe("markdown");
+  });
+
+  it("maps both html extensions", () => {
+    expect(getDualPreviewKind("index.html")).toBe("html");
+    expect(getDualPreviewKind("web/index.HTM")).toBe("html");
+  });
+
+  it("maps svg", () => {
+    expect(getDualPreviewKind("images/icon.svg")).toBe("svg");
+  });
+
+  it("returns null for single-format files", () => {
+    expect(getDualPreviewKind("config.json")).toBeNull();
+    expect(getDualPreviewKind("photo.png")).toBeNull();
+    expect(getDualPreviewKind("README")).toBeNull();
   });
 });
