@@ -9,11 +9,13 @@ describe("app", () => {
   test("reports the profile list and its default", async () => {
     const res = await app.request("/api/config");
     expect(res.status).toBe(200);
+    // The region comes from the environment: setup.ts only defaults it, and CI overrides it.
+    const region = process.env.AWS_DEFAULT_REGION;
     expect(await res.json()).toEqual({
       defaultProfile: "default",
       profiles: [
-        { id: "default", label: "Default", source: "env", region: "eu-west-1", s3: true, sqs: true },
-        { id: "alt", label: "Alternate", source: "env", region: "eu-west-1", s3: true, sqs: true },
+        { id: "default", label: "Default", source: "env", region, s3: true, sqs: true },
+        { id: "alt", label: "Alternate", source: "env", region, s3: true, sqs: true },
       ],
     });
   });
