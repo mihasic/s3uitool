@@ -2,7 +2,6 @@ $ErrorActionPreference = "Stop"
 
 # Get script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RootDir = Split-Path -Parent $ScriptDir
 
 # Check for aws command
 if (-not (Get-Command "aws" -ErrorAction SilentlyContinue)) {

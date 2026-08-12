@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { API_BASE_URL } from "../lib/config";
-import type { AppConfig } from "../types/config";
+import { API_BASE_URL } from "@/lib/config";
+import type { AppConfig } from "@/types/config";
 
 interface ConfigContextType {
   config: AppConfig | null;

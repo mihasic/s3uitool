@@ -1,36 +1,34 @@
-# Stage 1: Frontend Builder
-FROM oven/bun:1 AS frontend-builder
+# Shared dependency layer: one install for both builders, so the frontend and the
+# backend bundle can be produced in parallel without paying for `bun install` twice.
+FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY app/package.json ./app/
+COPY api/package.json ./api/
 COPY e2e/package.json ./e2e/
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN bun install --filter app --frozen-lockfile
+RUN bun install --filter app --filter api --frozen-lockfile
+
+# Stage 1: Frontend Builder
+FROM deps AS frontend-builder
 COPY app ./app
 RUN bun run build
 
-# Stage 2: Backend Builder
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS backend-builder
-WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-COPY api/pyproject.toml api/uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-editable
+# Stage 2: Backend Builder — bundle the API to a single file so the runtime image
+# carries no node_modules at all.
+FROM deps AS backend-builder
+COPY api ./api
+RUN cd api && bun build src/index.ts --target=bun --outfile=/app/server.js
 
 # Stage 3: Final Runtime
-FROM python:3.14-slim-bookworm
+FROM oven/bun:1-slim
 WORKDIR /app
-
-# Copy virtual environment from backend builder
-COPY --from=backend-builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy frontend static assets
 COPY --from=frontend-builder /app/app/dist /app/static
 
-# Copy backend source code
-COPY api/src /app/src
+# Copy the bundled backend
+COPY --from=backend-builder /app/server.js /app/server.js
 
 # Environment variables
 ENV ENABLE_S3=true
@@ -40,4 +38,4 @@ ENV ENABLE_SQS=true
 EXPOSE 8000
 
 # Run application
-CMD ["fastapi", "run", "src/main.py", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["bun", "run", "/app/server.js"]

@@ -4,12 +4,5 @@ set -e
 
 bunx lint-staged
 
-echo "Running Type Checks..."
-
-# Frontend
-echo "Frontend (tsc)..."
-(cd app && bunx tsc -b)
-
-# Backend
-echo "Backend (Mypy)..."
-(cd api && uv run mypy .)
+echo "Type checking..."
+bunx tsc -b

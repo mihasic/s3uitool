@@ -26,7 +26,6 @@ export interface Bucket {
 export interface Queue {
   Url: string;
   Name: string;
-  Attributes?: Record<string, string>;
 }
 
 export interface Message {

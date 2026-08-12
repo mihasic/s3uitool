@@ -1,0 +1,91 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false
+  },
+  "plugins": [
+    { "path": "./.biome/plugins/aws-clients.grit", "includes": ["**/api/src/**/*.ts", "!**/api/src/aws.ts"] }
+  ],
+  "overrides": [
+    {
+      "includes": ["app/src/index.css"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    },
+    {
+      "includes": ["**/app/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["../**", "../*"], "message": "Reach outside the directory with the `@/` alias." }
+                ]
+              }
+            },
+            "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["kebab-case"] } }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/app/src/{components,contexts,pages}/*.tsx", "**/app/src/App.tsx"],
+      "linter": {
+        "rules": {
+          "style": { "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["PascalCase"] } } }
+        }
+      }
+    },
+    {
+      "includes": ["**/app/src/hooks/*.ts"],
+      "linter": {
+        "rules": {
+          "style": { "useFilenamingConvention": { "level": "error", "options": { "filenameCases": ["camelCase"] } } }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.d.ts"],
+      "linter": { "enabled": false }
+    }
+  ],
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "preset": "recommended",
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

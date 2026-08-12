@@ -69,12 +69,15 @@ These scripts automatically export your current AWS session credentials and pass
 |----------------------|---------|-------------|
 | `AWS_S3_ENDPOINT_URL` | `http://localhost:9000` | URL of the S3 endpoint (e.g., RustFS). |
 | `AWS_SQS_ENDPOINT_URL` | `http://localhost:9324` | URL of the SQS endpoint (e.g., ElasticMQ). |
-| `AWS_ENDPOINT_URL` | `None` | Legacy shared endpoint (backward compatibility). Used for both services only when service-specific endpoints are not set. |
+| `AWS_ENDPOINT_URL` | `None` | Shared endpoint. Used for both services only when service-specific endpoints are not set. |
 | `AWS_DEFAULT_REGION` | `us-east-1` | AWS Region. |
 | `AWS_ACCESS_KEY_ID` | `test` | AWS Access Key ID. |
 | `AWS_SECRET_ACCESS_KEY` | `test` | AWS Secret Access Key. |
 | `ENABLE_S3` | `true` | Enable S3 features. |
 | `ENABLE_SQS` | `true` | Enable SQS features. |
+| `MAX_UPLOAD_MB` | `512` | Maximum multipart upload size. Bun buffers the body in memory, so this also bounds per-upload memory. |
+| `PORT` | `8000` | Port the server listens on. |
+| `STATIC_DIR` | `/app/static` | Directory holding the built frontend. |
 
 Endpoint precedence:
 1. `AWS_S3_ENDPOINT_URL` for S3 and `AWS_SQS_ENDPOINT_URL` for SQS
@@ -86,12 +89,12 @@ Endpoint precedence:
 
 - Docker
 - Docker Compose
-- Bun (for local frontend dev)
-- uv (for local backend dev)
+- Bun (for local frontend and backend dev)
 
 ### Local Configuration (.env)
 
-Create a `.env` file in the project root to configure local S3/SQS endpoints for development:
+Create a `.env` file in the project root to configure local S3/SQS endpoints for development
+(the `dev:api` and `seed` scripts load it):
 
 ```dotenv
 AWS_S3_ENDPOINT_URL=http://localhost:9000
@@ -103,55 +106,57 @@ AWS_SECRET_ACCESS_KEY=test
 
 ### Project Structure
 
-- `api/`: Python FastAPI backend
+- `api/`: TypeScript Hono backend (runs on Bun)
 - `app/`: React/Vite frontend
 - `e2e/`: Playwright End-to-End tests
 
 ### Backend
 
 ```bash
-cd api
-uv sync
-uv run fastapi dev src/main.py --port 8000
+bun install
+bun run dev:api            # http://localhost:8000, hot reload
 ```
 
 ### Frontend
 
 ```bash
-cd app
 bun install
+bun run dev:app            # http://localhost:5173, proxies /api to :8000
+```
+
+### Both at once
+
+```bash
 bun run dev
+bun run dev:local          # same, but pointed at the local RustFS/ElasticMQ emulators
 ```
 
 ### Testing
 
 #### API Integration Tests
 
-Run from the root or `api` directory:
+Needs the emulators running (`docker compose up -d rustfs elasticmq`):
 
 ```bash
-# From root
-PYTHONPATH=api/src uv run --directory api pytest
-
-# From api directory
-cd api
-PYTHONPATH=src uv run pytest
+bun run test:api
 ```
 
 #### End-to-End Tests
 
-Requires backend and frontend to be running (or configured in `playwright.config.ts`).
-The default config starts the frontend automatically but expects the backend to be running on port 8000.
+The default config starts the whole dev stack itself (`bun run dev`) and reuses one that
+is already up:
 
-1. Start Backend:
-   ```bash
-   cd api && uv run fastapi dev src/main.py --port 8000
-   ```
-2. Run Tests (from `e2e` directory):
-   ```bash
-   cd e2e
-   npx playwright test
-   ```
+```bash
+cd e2e && bunx playwright test
+```
+
+Alternatively, point Playwright straight at the built container and skip Vite:
+
+```bash
+docker compose up -d --build
+bun run seed
+cd e2e && APP_PORT=8000 bunx playwright test
+```
 
 ## Release
 
