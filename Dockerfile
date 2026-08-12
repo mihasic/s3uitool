@@ -1,6 +1,11 @@
 # Shared dependency layer: one install for both builders, so the frontend and the
 # backend bundle can be produced in parallel without paying for `bun install` twice.
-FROM oven/bun:1 AS deps
+#
+# Every builder stage is pinned to $BUILDPLATFORM: the artifacts they produce (static
+# files, a `--target=bun` bundle) carry no machine code, so building them per target
+# architecture only bought a second, concurrent Vite build — and two of those deadlock
+# each other, since Monaco's workers make each one spawn nested rolldown builds.
+FROM --platform=$BUILDPLATFORM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY app/package.json ./app/
@@ -10,13 +15,13 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN bun install --filter app --filter api --frozen-lockfile
 
 # Stage 1: Frontend Builder
-FROM deps AS frontend-builder
+FROM --platform=$BUILDPLATFORM deps AS frontend-builder
 COPY app ./app
 RUN bun run build
 
 # Stage 2: Backend Builder — bundle the API to a single file so the runtime image
 # carries no node_modules at all.
-FROM deps AS backend-builder
+FROM --platform=$BUILDPLATFORM deps AS backend-builder
 COPY api ./api
 RUN cd api && bun build src/index.ts --target=bun --outfile=/app/server.js
 
