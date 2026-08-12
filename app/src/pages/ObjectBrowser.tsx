@@ -12,7 +12,7 @@ import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { api } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { reportError } from "@/lib/errors";
-import { IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import { getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
 const route = getRouteApi("/s3/$bucket");
 
@@ -69,8 +69,9 @@ export function ObjectBrowser() {
     async (key: string) => {
       if (!bucket) return;
       const ext = key.split(".").pop()?.toLowerCase();
+      const isDual = !!getDualPreviewKind(key);
 
-      if (ext && IMAGE_EXTENSIONS.has(ext)) {
+      if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) {
         setSelectedFile({
           key,
           content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
@@ -105,7 +106,7 @@ export function ObjectBrowser() {
           `s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
         );
 
-        if (response.ContentType?.toLowerCase().startsWith("image/")) {
+        if ((!isDual || response.Content === null) && response.ContentType?.toLowerCase().startsWith("image/")) {
           setSelectedFile({
             key,
             content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,

@@ -1,6 +1,8 @@
 export const TEXTUAL_EXTENSIONS = new Set([
   "txt",
   "md",
+  "markdown",
+  "svg",
   "json",
   "js",
   "ts",
@@ -42,6 +44,21 @@ export const TEXTUAL_EXTENSIONS = new Set([
 
 export const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"]);
 
+export type DualPreviewKind = "markdown" | "html" | "svg";
+
+const DUAL_PREVIEW_KINDS: Record<string, DualPreviewKind> = {
+  md: "markdown",
+  markdown: "markdown",
+  html: "html",
+  htm: "html",
+  svg: "svg",
+};
+
+export const getDualPreviewKind = (filename: string): DualPreviewKind | null => {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  return (ext && DUAL_PREVIEW_KINDS[ext]) || null;
+};
+
 export const getLanguageFromFilename = (filename: string): string => {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {
@@ -55,6 +72,7 @@ export const getLanguageFromFilename = (filename: string): string => {
     case "py":
       return "python";
     case "md":
+    case "markdown":
       return "markdown";
     case "sh":
     case "bash":
@@ -77,6 +95,7 @@ export const getLanguageFromFilename = (filename: string): string => {
     case "sql":
       return "sql";
     case "xml":
+    case "svg":
     case "xaml":
     case "axml":
     case "xsd":
