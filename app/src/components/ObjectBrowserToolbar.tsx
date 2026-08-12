@@ -15,6 +15,7 @@ import { Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useProfileId } from "@/hooks/useProfileApi";
 import { getParentPrefix } from "@/lib/file-utils";
 import type { ViewMode } from "@/types/s3";
 
@@ -75,6 +76,7 @@ export function ObjectBrowserToolbar({
   pageSize,
   onPageSizeChange,
 }: ObjectBrowserToolbarProps) {
+  const profile = useProfileId();
   const parts = prefix.split("/").filter(Boolean);
 
   return (
@@ -82,11 +84,11 @@ export function ObjectBrowserToolbar({
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" asChild>
           {prefix ? (
-            <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: getParentPrefix(prefix) }}>
+            <Link to="/$profile/s3/$bucket" params={{ profile, bucket }} search={{ prefix: getParentPrefix(prefix) }}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           ) : (
-            <Link to="/s3">
+            <Link to="/$profile/s3" params={{ profile }}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           )}
@@ -95,7 +97,12 @@ export function ObjectBrowserToolbar({
           <RefreshCw className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold flex flex-wrap items-center">
-          <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: "" }} className="hover:underline">
+          <Link
+            to="/$profile/s3/$bucket"
+            params={{ profile, bucket }}
+            search={{ prefix: "" }}
+            className="hover:underline"
+          >
             {bucket}
           </Link>
           {parts.map((part, index) => {
@@ -103,7 +110,12 @@ export function ObjectBrowserToolbar({
             return (
               <Fragment key={currentPath}>
                 <span className="mx-2 text-muted-foreground">/</span>
-                <Link to="/s3/$bucket" params={{ bucket }} search={{ prefix: currentPath }} className="hover:underline">
+                <Link
+                  to="/$profile/s3/$bucket"
+                  params={{ profile, bucket }}
+                  search={{ prefix: currentPath }}
+                  className="hover:underline"
+                >
                   {part}
                 </Link>
               </Fragment>

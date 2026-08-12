@@ -8,20 +8,21 @@ import { SendMessageModal } from "@/components/SendMessageModal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { profileKey, useProfileApi } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
 import type { Message } from "@/types/s3";
 
-const route = getRouteApi("/sqs/$queueName");
+const route = getRouteApi("/$profile/sqs/$queueName");
 
 export function MessageList() {
-  const { queueName } = route.useParams();
+  const { profile, queueName } = route.useParams();
+  const api = useProfileApi();
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const messagesKey = ["messages", queueName] as const;
+  const messagesKey = profileKey(profile, "messages", queueName);
   const {
     data: messages = [],
     isLoading: loading,
@@ -74,12 +75,12 @@ export function MessageList() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild>
-            <Link to="/sqs">
+            <Link to="/$profile/sqs" params={{ profile }}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
           <h1 className="text-2xl font-bold">
-            <Link to="/sqs" className="hover:underline text-muted-foreground">
+            <Link to="/$profile/sqs" params={{ profile }} className="hover:underline text-muted-foreground">
               Queues
             </Link>
             <span className="mx-2 text-muted-foreground">/</span>

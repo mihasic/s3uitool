@@ -56,14 +56,34 @@ async function request<T>(endpoint: string, options: RequestInit = {}, timeoutMs
   }
 }
 
-export const api = {
-  get: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: "GET" }),
-  post: <T>(endpoint: string, body: unknown, options?: RequestInit) =>
-    request<T>(endpoint, { ...options, method: "POST", body: JSON.stringify(body) }),
-  put: <T>(endpoint: string, body: unknown, options?: RequestInit) =>
-    request<T>(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),
-  delete: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: "DELETE" }),
-  // Uploads can be large; give them a longer timeout and send raw FormData.
-  upload: <T>(endpoint: string, formData: FormData, options?: RequestInit) =>
-    request<T>(endpoint, { ...options, method: "PUT", body: formData }, 5 * 60_000),
-};
+export interface ProfileApi {
+  get: <T>(endpoint: string, options?: RequestInit) => Promise<T>;
+  post: <T>(endpoint: string, body: unknown, options?: RequestInit) => Promise<T>;
+  put: <T>(endpoint: string, body: unknown, options?: RequestInit) => Promise<T>;
+  delete: <T>(endpoint: string, options?: RequestInit) => Promise<T>;
+  upload: <T>(endpoint: string, formData: FormData, options?: RequestInit) => Promise<T>;
+  /** Absolute URL, for `window.open` and `<img src>` which cannot carry the profile in a header. */
+  url: (endpoint: string) => string;
+}
+
+/**
+ * Every request is scoped to one AWS profile; there is deliberately no unscoped client,
+ * so a call site cannot silently fall through to the default account.
+ */
+export function createApi(profile: string): ProfileApi {
+  const scoped = (endpoint: string) =>
+    `/${encodeURIComponent(profile)}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  return {
+    get: (endpoint, options) => request(scoped(endpoint), { ...options, method: "GET" }),
+    post: (endpoint, body, options) =>
+      request(scoped(endpoint), { ...options, method: "POST", body: JSON.stringify(body) }),
+    put: (endpoint, body, options) =>
+      request(scoped(endpoint), { ...options, method: "PUT", body: JSON.stringify(body) }),
+    delete: (endpoint, options) => request(scoped(endpoint), { ...options, method: "DELETE" }),
+    // Uploads can be large; give them a longer timeout and send raw FormData.
+    upload: (endpoint, formData, options) =>
+      request(scoped(endpoint), { ...options, method: "PUT", body: formData }, 5 * 60_000),
+    url: (endpoint) => `${API_BASE_URL}${scoped(endpoint)}`,
+  };
+}

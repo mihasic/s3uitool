@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { unzipSync } from "fflate";
 import { app } from "../src/app";
+import { resetRegistry } from "../src/profiles";
 
 const BUCKET = "test-bucket-1";
 
@@ -11,6 +12,31 @@ async function put(key: string, content: string | Uint8Array, type = "text/plain
 }
 
 describe("s3", () => {
+  test("serves the same account under the legacy and profile-scoped mounts", async () => {
+    const legacy = await app.request("/api/s3/buckets");
+    const scoped = await app.request("/api/default/s3/buckets");
+    const alt = await app.request("/api/alt/s3/buckets");
+    expect([legacy.status, scoped.status, alt.status]).toEqual([200, 200, 200]);
+    const expected = await legacy.json();
+    expect(await scoped.json()).toEqual(expected);
+    expect(await alt.json()).toEqual(expected);
+  });
+
+  test("404s a profile with the service disabled", async () => {
+    process.env.PROFILE_nos3_ACCESS_KEY_ID = "a";
+    process.env.PROFILE_nos3_SECRET_ACCESS_KEY = "b";
+    process.env.PROFILE_nos3_ENABLE_S3 = "false";
+    resetRegistry();
+    try {
+      const res = await app.request("/api/nos3/s3/buckets");
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'S3 is not enabled for profile "nos3"' });
+    } finally {
+      for (const key of ["ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "ENABLE_S3"]) delete process.env[`PROFILE_nos3_${key}`];
+      resetRegistry();
+    }
+  });
+
   test("lists buckets", async () => {
     const res = await app.request("/api/s3/buckets");
     expect(res.status).toBe(200);

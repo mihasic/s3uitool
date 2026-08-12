@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
+import type { AppEnv } from "./context";
 
 /** AWS codes that mean the thing isn't there. */
 const NOT_FOUND_MESSAGES: Record<string, string> = {
@@ -19,7 +20,7 @@ function awsErrorCode(err: unknown): string | undefined {
 }
 
 /** Anything thrown becomes `{ error }`, which the frontend's `ApiError` reads. */
-export function onError(err: Error, c: Context): Response {
+export function onError(err: Error, c: Context<AppEnv>): Response {
   if (err instanceof HTTPException) return c.json({ error: err.message || "Request failed" }, err.status);
 
   const code = awsErrorCode(err);
@@ -27,7 +28,9 @@ export function onError(err: Error, c: Context): Response {
     const notFound = NOT_FOUND_MESSAGES[code];
     if (notFound) return c.json({ error: notFound }, 404);
     if (AUTH_ERROR_CODES.has(code)) {
-      return c.json({ error: "AWS authentication failed. Check endpoint and credentials." }, 502);
+      const profile = c.get("profile");
+      const where = profile ? ` for profile "${profile.label}"` : "";
+      return c.json({ error: `AWS authentication failed${where}. Check endpoint and credentials.` }, 502);
     }
     return c.json({ error: `AWS request failed: ${code}` }, 502);
   }

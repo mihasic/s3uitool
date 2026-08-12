@@ -22,6 +22,19 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
+      # A second profile, so the header switcher and per-profile feature flags are
+      # exercised locally and by the e2e suite. Real deployments point these at another
+      # account instead — or drop them for a single-profile setup.
+      - PROFILE_s3only_LABEL=Emulators (S3 only)
+      - PROFILE_s3only_S3_ENDPOINT_URL=http://rustfs:9000
+      - PROFILE_s3only_REGION=us-east-1
+      - PROFILE_s3only_ACCESS_KEY_ID=test
+      - PROFILE_s3only_SECRET_ACCESS_KEY=test
+      - PROFILE_s3only_ENABLE_SQS=false
+    # Mount the host's AWS config to pick up named/SSO profiles. Do not do this on a host
+    # reachable beyond localhost: the app has no authentication.
+    # volumes:
+    #   - ~/.aws:/root/.aws:ro
     depends_on:
       - rustfs
       - elasticmq

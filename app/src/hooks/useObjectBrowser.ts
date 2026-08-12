@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { api } from "@/lib/api";
+import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
 import type { ObjectListResponse, TableItem, ViewMode } from "@/types/s3";
 
@@ -13,6 +13,8 @@ interface PrefixParams {
 }
 
 export function useObjectBrowser(bucket: string | undefined, prefix: string) {
+  const api = useProfileApi();
+  const profile = useProfileId();
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem("viewMode");
     if (saved === "folder" || saved === "tree" || saved === "flat") {
@@ -127,7 +129,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         return { prefix: p };
       });
 
-      const requestKey = JSON.stringify({ bucket, requests });
+      const requestKey = JSON.stringify({ profile, bucket, requests });
       // If request identical to last one and not forced, skip.
       // However, if we are waiting for auto-expand check (and autoExpand is ON),
       // we must proceed even if request looks same (though usually auto-expand adds prefixes so it wouldn't match).
@@ -232,7 +234,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         }
       }
     },
-    [bucket, prefix, expandedFolders, viewMode, filterText, currentPage, pageTokens, pageSize],
+    [api, profile, bucket, prefix, expandedFolders, viewMode, filterText, currentPage, pageTokens, pageSize],
   );
 
   // Re-fetch when bucket, prefix or expandedFolders changes
