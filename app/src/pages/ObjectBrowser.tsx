@@ -9,16 +9,16 @@ import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
 import { ObjectListTable } from "@/components/ObjectListTable";
 import { UploadModal } from "@/components/UploadModal";
 import { useObjectBrowser } from "@/hooks/useObjectBrowser";
-import { api } from "@/lib/api";
-import { API_BASE_URL } from "@/lib/config";
+import { useProfileApi } from "@/hooks/useProfileApi";
 import { reportError } from "@/lib/errors";
 import { getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
-const route = getRouteApi("/s3/$bucket");
+const route = getRouteApi("/$profile/s3/$bucket");
 
 export function ObjectBrowser() {
-  const { bucket } = route.useParams();
+  const { profile, bucket } = route.useParams();
   const { prefix } = route.useSearch();
+  const api = useProfileApi();
 
   const {
     items,
@@ -74,7 +74,7 @@ export function ObjectBrowser() {
       if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) {
         setSelectedFile({
           key,
-          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+          content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
           isImage: true,
         });
         return;
@@ -83,7 +83,7 @@ export function ObjectBrowser() {
       if (ext === "pdf") {
         setSelectedFile({
           key,
-          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+          content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
           isImage: false,
           isPdf: true,
         });
@@ -93,7 +93,7 @@ export function ObjectBrowser() {
       if (ext === "docx") {
         setSelectedFile({
           key,
-          content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`,
+          content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`),
           isImage: false,
           isPdf: false,
           isDocx: true,
@@ -109,7 +109,7 @@ export function ObjectBrowser() {
         if ((!isDual || response.Content === null) && response.ContentType?.toLowerCase().startsWith("image/")) {
           setSelectedFile({
             key,
-            content: `${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`,
+            content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
             isImage: true,
           });
           return;
@@ -124,7 +124,7 @@ export function ObjectBrowser() {
         reportError("Failed to load file", err);
       }
     },
-    [bucket],
+    [api, bucket],
   );
 
   const handleDelete = useCallback(
@@ -145,7 +145,7 @@ export function ObjectBrowser() {
         reportError("Failed to delete file", err);
       }
     },
-    [bucket, refresh, confirm],
+    [api, bucket, refresh, confirm],
   );
 
   const handleDeleteFolder = useCallback(
@@ -166,7 +166,7 @@ export function ObjectBrowser() {
         reportError("Failed to delete folder", err);
       }
     },
-    [bucket, refresh, confirm],
+    [api, bucket, refresh, confirm],
   );
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export function ObjectBrowser() {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           const item = items[selectedIndex];
           if (item.type === "folder") {
-            navigate({ to: "/s3/$bucket", params: { bucket }, search: { prefix: item.key } });
+            navigate({ to: "/$profile/s3/$bucket", params: { profile, bucket }, search: { prefix: item.key } });
           } else {
             handleView(item.key);
           }
@@ -223,6 +223,7 @@ export function ObjectBrowser() {
     copyMoveModalOpen,
     uploadModalOpen,
     newFileModalOpen,
+    profile,
     bucket,
     navigate,
     handleDelete,
@@ -335,12 +336,12 @@ export function ObjectBrowser() {
   const handleDownload = (key: string) => {
     if (!bucket) return;
     // Direct download link
-    window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`, "_blank");
+    window.open(api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`), "_blank");
   };
 
   const handleDownloadFolder = (prefix: string) => {
     if (!bucket) return;
-    window.open(`${API_BASE_URL}/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`, "_blank");
+    window.open(api.url(`/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`), "_blank");
   };
 
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;

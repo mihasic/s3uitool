@@ -1,39 +1,63 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
-import { settings } from "./config";
+import { STSClient } from "@aws-sdk/client-sts";
+import type { Profile } from "./profiles";
 
-/**
- * Pin env credentials. The JS provider chain prefers `AWS_PROFILE` over them, so a
- * developer machine would otherwise sign against a real account, not the emulator.
- */
-function envCredentials() {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  if (!accessKeyId || !secretAccessKey) return {};
-  // An empty token would be sent as a blank x-amz-security-token header.
-  const sessionToken = process.env.AWS_SESSION_TOKEN || undefined;
-  return { credentials: { accessKeyId, secretAccessKey, ...(sessionToken ? { sessionToken } : {}) } };
+interface Cached<T extends { destroy: () => void }> {
+  fingerprint: string;
+  client: T;
 }
 
-let s3: S3Client | undefined;
-let sqs: SQSClient | undefined;
-
-/** Cached: clients are reusable and hold the connection pool. */
-export function getS3Client(): S3Client {
-  s3 ??= new S3Client({
-    // The SDK defaults to virtual-host addressing, which breaks RustFS/MinIO.
-    ...(settings.s3EndpointUrl ? { endpoint: settings.s3EndpointUrl, forcePathStyle: true } : {}),
-    ...(settings.awsDefaultRegion ? { region: settings.awsDefaultRegion } : {}),
-    ...envCredentials(),
-  });
-  return s3;
+function cache<T extends { destroy: () => void }>(store: Map<string, Cached<T>>, profile: Profile, create: () => T): T {
+  const existing = store.get(profile.id);
+  if (existing) {
+    if (existing.fingerprint === profile.fingerprint) return existing.client;
+    existing.client.destroy();
+  }
+  const client = create();
+  store.set(profile.id, { fingerprint: profile.fingerprint, client });
+  return client;
 }
 
-export function getSqsClient(): SQSClient {
-  sqs ??= new SQSClient({
-    ...(settings.sqsEndpointUrl ? { endpoint: settings.sqsEndpointUrl } : {}),
-    ...(settings.awsDefaultRegion ? { region: settings.awsDefaultRegion } : {}),
-    ...envCredentials(),
-  });
-  return sqs;
+const s3Clients = new Map<string, Cached<S3Client>>();
+const sqsClients = new Map<string, Cached<SQSClient>>();
+const stsClients = new Map<string, Cached<STSClient>>();
+
+export function getS3Client(profile: Profile): S3Client {
+  return cache(
+    s3Clients,
+    profile,
+    () =>
+      new S3Client({
+        // The SDK defaults to virtual-host addressing, which breaks RustFS/MinIO.
+        ...(profile.s3Endpoint ? { endpoint: profile.s3Endpoint, forcePathStyle: true } : {}),
+        ...(profile.region ? { region: profile.region } : {}),
+        ...(profile.credentials ? { credentials: profile.credentials } : {}),
+      }),
+  );
+}
+
+export function getSqsClient(profile: Profile): SQSClient {
+  return cache(
+    sqsClients,
+    profile,
+    () =>
+      new SQSClient({
+        ...(profile.sqsEndpoint ? { endpoint: profile.sqsEndpoint } : {}),
+        ...(profile.region ? { region: profile.region } : {}),
+        ...(profile.credentials ? { credentials: profile.credentials } : {}),
+      }),
+  );
+}
+
+export function getStsClient(profile: Profile): STSClient {
+  return cache(
+    stsClients,
+    profile,
+    () =>
+      new STSClient({
+        ...(profile.region ? { region: profile.region } : {}),
+        ...(profile.credentials ? { credentials: profile.credentials } : {}),
+      }),
+  );
 }

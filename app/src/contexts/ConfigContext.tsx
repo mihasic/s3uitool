@@ -35,7 +35,10 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         // Surface the failure, then fall back to all-enabled so the app stays usable.
         toast.error("Couldn't load app config from the server — showing all features.");
         setError(true);
-        setConfig({ s3: true, sqs: true });
+        setConfig({
+          defaultProfile: "default",
+          profiles: [{ id: "default", label: "Default", source: "env", s3: true, sqs: true }],
+        });
         setIsLoading(false);
       });
   }, []);

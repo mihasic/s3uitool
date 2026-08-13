@@ -36,6 +36,22 @@ TanStack Query for server state, `sonner` toasts via `reportError`, `ApiError` i
 `MAX_UPLOAD_MB` (default 512) bounds both upload size and per-upload memory, since Bun
 buffers multipart bodies; `STATIC_DIR` (default `/app/static`) locates the built frontend.
 
+## Profiles
+
+`api/src/profiles.ts` is the single place that resolves AWS targets. The global `AWS_*`
+vars always yield the default profile (`DEFAULT_PROFILE_ID`, default `default`);
+`PROFILE_<id>_*` groups add more; `~/.aws` is read unless `ENABLE_PROFILE_DISCOVERY=0`
+(narrow it with `AWS_CONFIG_PROFILES`). Ini profiles resolve credentials through
+`fromIni({ profile })` — never `fromNodeProviderChain({ profile })`, which prefers ambient
+env keys and would sign a real account with the emulator's credentials.
+
+Clients are cached per profile in `api/src/aws.ts` and keyed on `Profile.fingerprint`;
+nothing else may construct them (`.biome/plugins/aws-clients.grit`). Routes are mounted
+both at `/api/:profile/{s3,sqs}` and at the legacy `/api/{s3,sqs}`, and handlers read
+`c.get("s3")` / `c.get("sqs")` from the Hono context (`api/src/context.ts`). Frontend
+routes are `/$profile/s3/$bucket`; pre-profile URLs redirect. Profile ids are slugified and
+must not collide with an API segment or a `STATIC_DIR` entry.
+
 ## Tests
 
 `api/tests/setup.ts` is a `bun test` preload: it points the SDK at the emulators and

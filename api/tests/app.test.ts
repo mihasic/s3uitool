@@ -6,10 +6,30 @@ import { app } from "../src/app";
 import { resolveStaticFile } from "../src/static";
 
 describe("app", () => {
-  test("reports feature flags", async () => {
+  test("reports the profile list and its default", async () => {
     const res = await app.request("/api/config");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ s3: true, sqs: true });
+    // The region comes from the environment: setup.ts only defaults it, and CI overrides it.
+    const region = process.env.AWS_DEFAULT_REGION;
+    expect(await res.json()).toEqual({
+      defaultProfile: "default",
+      profiles: [
+        { id: "default", label: "Default", source: "env", region, s3: true, sqs: true },
+        { id: "alt", label: "Alternate", source: "env", region, s3: true, sqs: true },
+      ],
+    });
+  });
+
+  test("404s an unknown profile", async () => {
+    const res = await app.request("/api/nosuchprofile/s3/buckets");
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Unknown profile "nosuchprofile"' });
+  });
+
+  test("falls back to the index for profile-scoped SPA routes", async () => {
+    const res = await app.request("/alt/s3/documents");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<title>app</title>");
   });
 
   test("reports health", async () => {

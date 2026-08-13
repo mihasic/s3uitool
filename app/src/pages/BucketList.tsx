@@ -4,14 +4,16 @@ import { Database, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBuckets } from "@/hooks/useApi";
+import { profileKey, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
 
 export function BucketList() {
   const { data: buckets = [], isLoading: loading, error } = useBuckets();
   const queryClient = useQueryClient();
+  const profile = useProfileId();
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["buckets"] });
+    queryClient.invalidateQueries({ queryKey: profileKey(profile, "buckets") });
   };
 
   if (loading) return <div className="p-6">Loading buckets...</div>;
@@ -27,7 +29,12 @@ export function BucketList() {
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {buckets.map((bucket) => (
-          <Link key={bucket.Name} to="/s3/$bucket" params={{ bucket: bucket.Name }} search={{ prefix: "" }}>
+          <Link
+            key={bucket.Name}
+            to="/$profile/s3/$bucket"
+            params={{ profile, bucket: bucket.Name }}
+            search={{ prefix: "" }}
+          >
             <Card className="hover:bg-accent transition-colors cursor-pointer">
               <CardHeader className="flex flex-row items-center gap-4">
                 <Database className="h-8 w-8 text-blue-500" />

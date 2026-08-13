@@ -3,7 +3,8 @@ language js
 `new $client($_)` where {
   $client <: or {
     `S3Client`,
-    `SQSClient`
+    `SQSClient`,
+    `STSClient`
   },
-  register_diagnostic(span=$client, message="Construct AWS clients only in api/src/aws.ts, via getS3Client()/getSqsClient(): they pin env credentials (the provider chain otherwise prefers AWS_PROFILE and signs against a real account) and force path-style S3.", severity="error")
+  register_diagnostic(span=$client, message="Construct AWS clients only in api/src/aws.ts, via getS3Client()/getSqsClient()/getStsClient(): they resolve per-profile credentials and endpoints and force path-style S3.", severity="error")
 }

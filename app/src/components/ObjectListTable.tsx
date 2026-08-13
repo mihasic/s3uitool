@@ -3,6 +3,7 @@ import { ArrowRight, ChevronDown, ChevronRight, Copy, Download, Eye, File, Folde
 import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useProfileId } from "@/hooks/useProfileApi";
 import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
 import type { TableItem, ViewMode } from "@/types/s3";
 
@@ -43,6 +44,7 @@ export function ObjectListTable({
   onFileDrop,
   viewMode,
 }: ObjectListTableProps) {
+  const profile = useProfileId();
   const [isDragging, setIsDragging] = useState(false);
 
   const formatSize = (bytes: number) => {
@@ -150,8 +152,8 @@ export function ObjectListTable({
                   </TableCell>
                   <TableCell>
                     <Link
-                      to="/s3/$bucket"
-                      params={{ bucket }}
+                      to="/$profile/s3/$bucket"
+                      params={{ profile, bucket }}
                       search={{ prefix: item.key }}
                       className="font-medium hover:underline text-blue-600"
                     >
@@ -224,8 +226,8 @@ export function ObjectListTable({
                               return (
                                 <Fragment key={partPrefix}>
                                   <Link
-                                    to="/s3/$bucket"
-                                    params={{ bucket }}
+                                    to="/$profile/s3/$bucket"
+                                    params={{ profile, bucket }}
                                     search={{ prefix: partPrefix }}
                                     className="text-muted-foreground hover:underline text-sm"
                                   >

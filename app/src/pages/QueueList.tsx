@@ -6,19 +6,21 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQueues } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
 
 export function QueueList() {
   const { data: queues = [], isLoading: loading, error } = useQueues();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
+  const api = useProfileApi();
+  const profile = useProfileId();
 
   const purgeQueueMutation = useMutation({
     mutationFn: (queueName: string) => api.post(`sqs/queues/${queueName}/purge`, {}),
     onSuccess: () => {
       toast.success("Queue purged successfully");
-      queryClient.invalidateQueries({ queryKey: ["queues"] });
+      queryClient.invalidateQueries({ queryKey: profileKey(profile, "queues") });
     },
     onError: (err) => {
       reportError("Failed to purge queue", err);
@@ -26,7 +28,7 @@ export function QueueList() {
   });
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["queues"] });
+    queryClient.invalidateQueries({ queryKey: profileKey(profile, "queues") });
   };
 
   const handlePurge = async (queueName: string) => {
@@ -64,8 +66,8 @@ export function QueueList() {
               <TableRow key={queue.Url}>
                 <TableCell className="font-medium">
                   <Link
-                    to="/sqs/$queueName"
-                    params={{ queueName: queue.Name }}
+                    to="/$profile/sqs/$queueName"
+                    params={{ profile, queueName: queue.Name }}
                     className="hover:underline text-blue-600"
                   >
                     {queue.Name}
@@ -75,7 +77,7 @@ export function QueueList() {
                 <TableCell>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" asChild title="View Messages">
-                      <Link to="/sqs/$queueName" params={{ queueName: queue.Name }}>
+                      <Link to="/$profile/sqs/$queueName" params={{ profile, queueName: queue.Name }}>
                         <MessageSquare className="h-4 w-4" />
                       </Link>
                     </Button>

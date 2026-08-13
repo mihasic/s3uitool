@@ -11,9 +11,11 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { lookup as lookupMime } from "mime-types";
 import { z } from "zod";
 import { getS3Client } from "./aws";
+import type { AppEnv } from "./context";
 import { dateTime, nullable, respondWith, stringMap } from "./model";
 import { type ZipEntry, zipStream } from "./zip";
 
@@ -59,7 +61,14 @@ type PrefixParams = {
   delimiter?: string;
 };
 
-export const s3Routes = new Hono();
+export const s3Routes = new Hono<AppEnv>();
+
+s3Routes.use("*", async (c, next) => {
+  const profile = c.get("profile");
+  if (!profile.s3) throw new HTTPException(404, { message: `S3 is not enabled for profile "${profile.id}"` });
+  c.set("s3", getS3Client(profile));
+  await next();
+});
 
 /** Yield every object key under `prefix` across all pages. */
 async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): AsyncGenerator<string> {
@@ -138,8 +147,8 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results;
 }
 
-s3Routes.get("/buckets", async () => {
-  const response = await getS3Client().send(new ListBucketsCommand({}));
+s3Routes.get("/buckets", async (c) => {
+  const response = await c.get("s3").send(new ListBucketsCommand({}));
   return respondWith(z.array(bucketModel), response.Buckets ?? []);
 });
 
@@ -148,7 +157,7 @@ s3Routes.get("/buckets/:bucket/objects", async (c) => {
   return respondWith(
     objectListModel,
     await fetchObjects(
-      getS3Client(),
+      c.get("s3"),
       c.req.param("bucket"),
       q.prefix ?? "",
       q.continuation_token ?? null,
@@ -162,7 +171,7 @@ s3Routes.get("/buckets/:bucket/objects", async (c) => {
 s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
   const bucket = c.req.param("bucket");
   const body = await c.req.json<{ prefixes?: string[]; requests?: PrefixParams[] }>();
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   const jobs: { prefix: string; run: () => Promise<ObjectList> }[] = [
     // Legacy simple prefixes list
@@ -202,7 +211,7 @@ s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
 s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   // Get metadata first
   const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
@@ -231,7 +240,7 @@ s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
 
 s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
   const key = c.req.param("key");
-  const response = await getS3Client().send(new GetObjectCommand({ Bucket: c.req.param("bucket"), Key: key }));
+  const response = await c.get("s3").send(new GetObjectCommand({ Bucket: c.req.param("bucket"), Key: key }));
 
   let contentType = response.ContentType || "application/octet-stream";
   // If generic or missing, try to guess from filename
@@ -261,7 +270,7 @@ s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
 
   const contentType = file.type || lookupMime(key) || undefined;
   await new Upload({
-    client: getS3Client(),
+    client: c.get("s3"),
     params: { Bucket: bucket, Key: key, Body: file, ...(contentType ? { ContentType: contentType } : {}) },
   }).done();
 
@@ -269,14 +278,14 @@ s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
 });
 
 s3Routes.delete("/buckets/:bucket/objects/:key{.+}", async (c) => {
-  await getS3Client().send(new DeleteObjectCommand({ Bucket: c.req.param("bucket"), Key: c.req.param("key") }));
+  await c.get("s3").send(new DeleteObjectCommand({ Bucket: c.req.param("bucket"), Key: c.req.param("key") }));
   return c.json({ message: "Object deleted successfully" });
 });
 
 s3Routes.post("/buckets/:bucket/delete-prefix", async (c) => {
   const bucket = c.req.param("bucket");
   const { prefix } = await c.req.json<{ prefix: string }>();
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   const keys: { Key: string }[] = [];
   for await (const key of allObjectKeys(s3, bucket, prefix)) keys.push({ Key: key });
@@ -304,7 +313,7 @@ s3Routes.post("/copy", async (c) => {
     destination_key: string;
     move?: boolean;
   }>();
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   await s3.send(
     new CopyObjectCommand({
@@ -330,7 +339,7 @@ s3Routes.post("/copy-prefix", async (c) => {
     destination_prefix: string;
     move?: boolean;
   }>();
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   let count = 0;
   for await (const srcKey of allObjectKeys(s3, req.source_bucket, req.source_prefix)) {
@@ -356,7 +365,7 @@ s3Routes.post("/copy-prefix", async (c) => {
 s3Routes.get("/buckets/:bucket/download-prefix", async (c) => {
   const bucket = c.req.param("bucket");
   const prefix = c.req.query("prefix") ?? "";
-  const s3 = getS3Client();
+  const s3 = c.get("s3");
 
   async function* entries(): AsyncGenerator<ZipEntry> {
     for await (const key of allObjectKeys(s3, bucket, prefix)) {

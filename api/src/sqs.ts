@@ -8,8 +8,10 @@ import {
   type SQSClient,
 } from "@aws-sdk/client-sqs";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getSqsClient } from "./aws";
+import type { AppEnv } from "./context";
 import { nullable, respondWith, stringMap } from "./model";
 
 const queueModel = z.object({
@@ -25,15 +27,22 @@ const messageModel = z.object({
   Attributes: nullable(stringMap),
 });
 
-export const sqsRoutes = new Hono();
+export const sqsRoutes = new Hono<AppEnv>();
+
+sqsRoutes.use("*", async (c, next) => {
+  const profile = c.get("profile");
+  if (!profile.sqs) throw new HTTPException(404, { message: `SQS is not enabled for profile "${profile.id}"` });
+  c.set("sqs", getSqsClient(profile));
+  await next();
+});
 
 async function queueUrl(sqs: SQSClient, name: string): Promise<string> {
   const response = await sqs.send(new GetQueueUrlCommand({ QueueName: name }));
   return response.QueueUrl ?? "";
 }
 
-sqsRoutes.get("/queues", async () => {
-  const response = await getSqsClient().send(new ListQueuesCommand({}));
+sqsRoutes.get("/queues", async (c) => {
+  const response = await c.get("sqs").send(new ListQueuesCommand({}));
   return respondWith(
     z.array(queueModel),
     (response.QueueUrls ?? []).map((url) => ({ Url: url, Name: url.split("/").pop() ?? url })),
@@ -41,7 +50,7 @@ sqsRoutes.get("/queues", async () => {
 });
 
 sqsRoutes.get("/queues/:queueName/messages", async (c) => {
-  const sqs = getSqsClient();
+  const sqs = c.get("sqs");
   const response = await sqs.send(
     new ReceiveMessageCommand({
       QueueUrl: await queueUrl(sqs, c.req.param("queueName")),
@@ -57,7 +66,7 @@ sqsRoutes.get("/queues/:queueName/messages", async (c) => {
 });
 
 sqsRoutes.post("/queues/:queueName/messages", async (c) => {
-  const sqs = getSqsClient();
+  const sqs = c.get("sqs");
   const body = await c.req.json<{ Body: string; DelaySeconds?: number }>();
   await sqs.send(
     new SendMessageCommand({
@@ -70,7 +79,7 @@ sqsRoutes.post("/queues/:queueName/messages", async (c) => {
 });
 
 sqsRoutes.delete("/queues/:queueName/messages/:receiptHandle{.+}", async (c) => {
-  const sqs = getSqsClient();
+  const sqs = c.get("sqs");
   await sqs.send(
     new DeleteMessageCommand({
       QueueUrl: await queueUrl(sqs, c.req.param("queueName")),
@@ -81,7 +90,7 @@ sqsRoutes.delete("/queues/:queueName/messages/:receiptHandle{.+}", async (c) => 
 });
 
 sqsRoutes.post("/queues/:queueName/purge", async (c) => {
-  const sqs = getSqsClient();
+  const sqs = c.get("sqs");
   await sqs.send(new PurgeQueueCommand({ QueueUrl: await queueUrl(sqs, c.req.param("queueName")) }));
   return c.json({ message: "Queue purged successfully" });
 });

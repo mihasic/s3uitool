@@ -15,7 +15,7 @@ async function uploadFile(page: import("@playwright/test").Page, name: string, b
 test.describe("S3 file operations", () => {
   test("creates a new file and saves it", async ({ page }) => {
     const name = `e2e-nf-${Date.now()}.json`;
-    await page.goto("/s3/documents");
+    await page.goto("/default/s3/documents");
     await page.getByRole("button", { name: "New File", exact: true }).click();
     await page.getByLabel("File Path").fill(name);
     await page.getByRole("button", { name: "Create", exact: true }).click();
@@ -26,18 +26,18 @@ test.describe("S3 file operations", () => {
 
   test("uploads a file", async ({ page }) => {
     const name = `e2e-up-${Date.now()}.txt`;
-    await page.goto("/s3/documents");
+    await page.goto("/default/s3/documents");
     await uploadFile(page, name);
   });
 
   test("previews a text file", async ({ page }) => {
-    await page.goto("/s3/documents");
+    await page.goto("/default/s3/documents");
     await page.getByRole("button", { name: "config.json", exact: true }).click();
     await expect(page.getByRole("dialog").getByText("config.json")).toBeVisible();
   });
 
   test("previews markdown rendered, then as code", async ({ page }) => {
-    await page.goto("/s3/documents?prefix=project/");
+    await page.goto("/default/s3/documents?prefix=project/");
     await page.getByRole("button", { name: "specs.md", exact: true }).click();
 
     const dialog = page.getByRole("dialog");
@@ -51,7 +51,7 @@ test.describe("S3 file operations", () => {
   });
 
   test("previews an svg as an image and as source", async ({ page }) => {
-    await page.goto("/s3/images");
+    await page.goto("/default/s3/images");
     await page.getByRole("button", { name: "icon.svg", exact: true }).click();
 
     const dialog = page.getByRole("dialog");
@@ -62,7 +62,7 @@ test.describe("S3 file operations", () => {
   });
 
   test("previews html rendered", async ({ page }) => {
-    await page.goto("/s3/documents?prefix=web/");
+    await page.goto("/default/s3/documents?prefix=web/");
     await page.getByRole("button", { name: "index.htm", exact: true }).click();
 
     const rendered = page.frameLocator('iframe[title="web/index.htm (rendered)"]');
@@ -70,7 +70,7 @@ test.describe("S3 file operations", () => {
   });
 
   test("previews an image", async ({ page }) => {
-    await page.goto("/s3/images");
+    await page.goto("/default/s3/images");
     await page.getByRole("button", { name: "design.png", exact: true }).click();
     await expect(page.getByRole("dialog").getByRole("img", { name: "design.png" })).toBeVisible();
   });
@@ -78,7 +78,7 @@ test.describe("S3 file operations", () => {
   test("copies a file to a new key", async ({ page }) => {
     const src = `e2e-src-${Date.now()}.txt`;
     const dst = `e2e-dst-${Date.now()}.txt`;
-    await page.goto("/s3/documents");
+    await page.goto("/default/s3/documents");
     await uploadFile(page, src);
 
     const row = page.getByRole("row").filter({ hasText: src });
@@ -90,7 +90,7 @@ test.describe("S3 file operations", () => {
 
   test("deletes a file via the confirm dialog", async ({ page }) => {
     const name = `e2e-rm-${Date.now()}.txt`;
-    await page.goto("/s3/documents");
+    await page.goto("/default/s3/documents");
     await uploadFile(page, name);
 
     const row = page.getByRole("row").filter({ hasText: name });
