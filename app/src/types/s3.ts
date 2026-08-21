@@ -26,6 +26,9 @@ export interface Bucket {
 export interface Queue {
   Url: string;
   Name: string;
+  Available: number | null;
+  InFlight: number | null;
+  Delayed: number | null;
 }
 
 export interface Message {

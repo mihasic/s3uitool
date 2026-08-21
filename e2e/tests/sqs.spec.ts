@@ -15,6 +15,13 @@ test.describe("SQS", () => {
     for (const q of ["orders-queue", "notifications-dlq", "email-jobs"]) {
       await expect(page.getByRole("link", { name: q, exact: true })).toBeVisible();
     }
+    for (const [q, count] of [
+      ["orders-queue", "5"],
+      ["notifications-dlq", "3"],
+      ["email-jobs", "0"],
+    ] as const) {
+      await expect(page.getByRole("row", { name: new RegExp(q) }).getByText(count, { exact: true })).toBeVisible();
+    }
   });
 
   test("views seeded messages and opens details", async ({ page }) => {
@@ -23,7 +30,15 @@ test.describe("SQS", () => {
     // Seeded order messages contain order_id.
     await expect(page.getByText("order_id").first()).toBeVisible();
     await page.getByRole("button", { name: "View message", exact: true }).first().click();
-    await expect(page.getByRole("dialog").getByText("Message Details")).toBeVisible();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Message Details")).toBeVisible();
+    // JSON bodies open in Monaco with the format/minimize tools. Seeded bodies are one line.
+    await expect(dialog.locator(".monaco-editor")).toBeVisible();
+    await expect(dialog.locator(".view-line")).toHaveCount(1);
+    await dialog.getByRole("button", { name: "Format" }).click();
+    await expect(dialog.locator(".view-line")).toHaveCount(4);
+    await dialog.getByRole("button", { name: "Minimize" }).click();
+    await expect(dialog.locator(".view-line")).toHaveCount(1);
   });
 
   test("sends a message", async ({ page }) => {

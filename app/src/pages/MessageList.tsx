@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { ArrowLeft, Eye, RefreshCw, Send, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { SendMessageModal } from "@/components/SendMessageModal";
@@ -10,7 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { profileKey, useProfileApi } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
+import { detectLanguage } from "@/lib/file-utils";
 import type { Message } from "@/types/s3";
+
+// Monaco is most of the bundle — pull it in only when a message is opened.
+const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
 
 const route = getRouteApi("/$profile/sqs/$queueName");
 
@@ -157,27 +161,41 @@ export function MessageList() {
       />
 
       <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Message Details</DialogTitle>
             <DialogDescription>ID: {selectedMessage?.MessageId}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <h4 className="font-medium leading-none">Body</h4>
-              <div className="p-4 bg-muted rounded-md whitespace-pre-wrap font-mono text-sm max-h-[400px] overflow-y-auto">
-                {selectedMessage?.Body}
-              </div>
-            </div>
-            {selectedMessage?.Attributes && Object.keys(selectedMessage.Attributes).length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium leading-none">Attributes</h4>
-                <div className="p-4 bg-muted rounded-md font-mono text-sm">
-                  <pre>{JSON.stringify(selectedMessage.Attributes, null, 2)}</pre>
+          {selectedMessage && (
+            <div className="flex-1 min-h-0 flex flex-col gap-4">
+              <div className="flex-1 min-h-0 flex flex-col gap-2">
+                <h4 className="font-medium leading-none">Body</h4>
+                <div className="flex-1 min-h-0">
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    }
+                  >
+                    <FileViewer
+                      key={selectedMessage.MessageId}
+                      content={selectedMessage.Body}
+                      language={detectLanguage(selectedMessage.Body)}
+                    />
+                  </Suspense>
                 </div>
               </div>
-            )}
-          </div>
+              {selectedMessage.Attributes && Object.keys(selectedMessage.Attributes).length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Attributes</h4>
+                  <div className="p-4 bg-muted rounded-md font-mono text-sm max-h-32 overflow-y-auto">
+                    <pre>{JSON.stringify(selectedMessage.Attributes, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
