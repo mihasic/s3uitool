@@ -8,6 +8,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useQueues } from "@/hooks/useApi";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
+import type { Queue } from "@/types/s3";
+
+function QueueCounts({ queue }: { queue: Queue }) {
+  if (queue.Available === null) return <span className="text-muted-foreground">&mdash;</span>;
+  const extra = [
+    queue.InFlight ? `${queue.InFlight} in flight` : null,
+    queue.Delayed ? `${queue.Delayed} delayed` : null,
+  ].filter(Boolean);
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="tabular-nums font-medium">{queue.Available}</span>
+      {extra.length > 0 && <span className="text-xs text-muted-foreground">{extra.join(", ")}</span>}
+    </div>
+  );
+}
 
 export function QueueList() {
   const { data: queues = [], isLoading: loading, error } = useQueues();
@@ -57,6 +72,7 @@ export function QueueList() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead className="w-[170px]">Messages</TableHead>
               <TableHead>URL</TableHead>
               <TableHead className="w-[150px]">Actions</TableHead>
             </TableRow>
@@ -72,6 +88,9 @@ export function QueueList() {
                   >
                     {queue.Name}
                   </Link>
+                </TableCell>
+                <TableCell>
+                  <QueueCounts queue={queue} />
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">{queue.Url}</TableCell>
                 <TableCell>
@@ -97,7 +116,7 @@ export function QueueList() {
             ))}
             {queues.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
                   No queues found.
                 </TableCell>
               </TableRow>

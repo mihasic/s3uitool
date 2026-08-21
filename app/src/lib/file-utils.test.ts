@@ -1,5 +1,26 @@
 import { describe, expect, it } from "bun:test";
-import { getDualPreviewKind, getParentPrefix } from "./file-utils";
+import { detectLanguage, getDualPreviewKind, getParentPrefix } from "./file-utils";
+
+describe("detectLanguage", () => {
+  it("detects json objects and arrays", () => {
+    expect(detectLanguage('{"a": 1}')).toBe("json");
+    expect(detectLanguage("  [1, 2]\n")).toBe("json");
+  });
+
+  it("falls back when a json-looking body does not parse", () => {
+    expect(detectLanguage("{not json")).toBe("plaintext");
+  });
+
+  it("detects xml", () => {
+    expect(detectLanguage('<?xml version="1.0"?><a/>')).toBe("xml");
+    expect(detectLanguage("<Event><id>1</id></Event>")).toBe("xml");
+  });
+
+  it("treats anything else as plain text", () => {
+    expect(detectLanguage("")).toBe("plaintext");
+    expect(detectLanguage("hello world")).toBe("plaintext");
+  });
+});
 
 describe("getParentPrefix", () => {
   it("should return empty string for empty prefix", () => {

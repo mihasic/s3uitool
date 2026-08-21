@@ -17,6 +17,26 @@ describe("sqs", () => {
     expect(queues[0]?.Url).toStartWith("http");
   });
 
+  test("reports message counts per queue", async () => {
+    await app.request(`/api/sqs/queues/${QUEUE}/purge`, { method: "POST" });
+    await app.request(`/api/sqs/queues/${QUEUE}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ Body: "counted" }),
+    });
+
+    const queues = (await (await app.request("/api/sqs/queues")).json()) as {
+      Name: string;
+      Available: number | null;
+      InFlight: number | null;
+      Delayed: number | null;
+    }[];
+    const queue = queues.find((q) => q.Name === QUEUE);
+    expect(queue?.Available).toBe(1);
+    expect(queue?.InFlight).toBe(0);
+    expect(queue?.Delayed).toBe(0);
+  });
+
   test("sends and receives a message", async () => {
     const messageBody = "Test Message";
 

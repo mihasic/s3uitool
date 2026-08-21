@@ -116,6 +116,22 @@ export const getLanguageFromFilename = (filename: string): string => {
   }
 };
 
+/** Guess a Monaco language for text that has no filename, e.g. an SQS message body. */
+export const detectLanguage = (content: string): string => {
+  const text = content.trim();
+  if (!text) return "plaintext";
+  if (/^[[{]/.test(text)) {
+    try {
+      JSON.parse(text);
+      return "json";
+    } catch {
+      // Not JSON after all; fall through to the other sniffs.
+    }
+  }
+  if (text.startsWith("<?xml") || /^<[A-Za-z_]/.test(text)) return "xml";
+  return "plaintext";
+};
+
 export const getParentPrefix = (currentPrefix: string) => {
   if (!currentPrefix) return "";
   const parts = currentPrefix.split("/").filter(Boolean);

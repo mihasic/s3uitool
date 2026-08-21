@@ -1,5 +1,6 @@
 import {
   DeleteMessageCommand,
+  GetQueueAttributesCommand,
   GetQueueUrlCommand,
   ListQueuesCommand,
   PurgeQueueCommand,
@@ -17,7 +18,36 @@ import { nullable, respondWith, stringMap } from "./model";
 const queueModel = z.object({
   Url: z.string(),
   Name: z.string(),
+  Available: nullable(z.number()),
+  InFlight: nullable(z.number()),
+  Delayed: nullable(z.number()),
 });
+
+const COUNT_ATTRIBUTES = [
+  "ApproximateNumberOfMessages",
+  "ApproximateNumberOfMessagesNotVisible",
+  "ApproximateNumberOfMessagesDelayed",
+] as const;
+
+const count = (attributes: Record<string, string> | undefined, name: string): number | null => {
+  const value = Number(attributes?.[name]);
+  return Number.isFinite(value) ? value : null;
+};
+
+async function queueCounts(sqs: SQSClient, url: string) {
+  try {
+    const { Attributes } = await sqs.send(
+      new GetQueueAttributesCommand({ QueueUrl: url, AttributeNames: [...COUNT_ATTRIBUTES] }),
+    );
+    return {
+      Available: count(Attributes, "ApproximateNumberOfMessages"),
+      InFlight: count(Attributes, "ApproximateNumberOfMessagesNotVisible"),
+      Delayed: count(Attributes, "ApproximateNumberOfMessagesDelayed"),
+    };
+  } catch {
+    return { Available: null, InFlight: null, Delayed: null };
+  }
+}
 
 const messageModel = z.object({
   MessageId: z.string().default(""),
@@ -42,11 +72,16 @@ async function queueUrl(sqs: SQSClient, name: string): Promise<string> {
 }
 
 sqsRoutes.get("/queues", async (c) => {
-  const response = await c.get("sqs").send(new ListQueuesCommand({}));
-  return respondWith(
-    z.array(queueModel),
-    (response.QueueUrls ?? []).map((url) => ({ Url: url, Name: url.split("/").pop() ?? url })),
+  const sqs = c.get("sqs");
+  const response = await sqs.send(new ListQueuesCommand({}));
+  const queues = await Promise.all(
+    (response.QueueUrls ?? []).map(async (url) => ({
+      Url: url,
+      Name: url.split("/").pop() ?? url,
+      ...(await queueCounts(sqs, url)),
+    })),
   );
+  return respondWith(z.array(queueModel), queues);
 });
 
 sqsRoutes.get("/queues/:queueName/messages", async (c) => {

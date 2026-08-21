@@ -57,6 +57,11 @@ export function FileViewer({ content, language = "plaintext", onSave, onChange, 
 
   const updateContent = (newContent: string) => {
     if (!editorRef.current) return;
+    // A read-only model rejects edits, so drive the controlled value instead.
+    if (!isEditable) {
+      setValue(newContent);
+      return;
+    }
     const model = editorRef.current.getModel();
     if (model) {
       editorRef.current.pushUndoStop();
@@ -73,16 +78,20 @@ export function FileViewer({ content, language = "plaintext", onSave, onChange, 
   const handleFormat = () => {
     if (!editorRef.current) return;
 
-    if (language === "json") {
+    if (language === "json" && isEditable) {
       editorRef.current.getAction("editor.action.formatDocument")?.run();
-    } else if (language === "xml" || language === "html") {
-      try {
-        const currentVal = editorRef.current.getValue();
-        const formatted = formatXml(currentVal);
-        updateContent(formatted);
-      } catch {
-        toast.error("Code formatting failed");
+      return;
+    }
+
+    try {
+      const currentVal = editorRef.current.getValue();
+      if (language === "json") {
+        updateContent(JSON.stringify(JSON.parse(currentVal), null, 2));
+      } else if (language === "xml" || language === "html") {
+        updateContent(formatXml(currentVal));
       }
+    } catch {
+      toast.error("Code formatting failed");
     }
   };
 
@@ -110,7 +119,7 @@ export function FileViewer({ content, language = "plaintext", onSave, onChange, 
     <div className="h-full w-full flex flex-col gap-2">
       <div className="flex items-center justify-end gap-2">
         {toolbarLeading && <div className="mr-auto">{toolbarLeading}</div>}
-        {showTools && isEditable && (
+        {showTools && (
           <>
             <Button variant="outline" size="sm" onClick={handleFormat} title={`Format ${language?.toUpperCase()}`}>
               <AlignLeft className="h-4 w-4 mr-2" />
