@@ -9,6 +9,7 @@
     "typescript": "^7.0.2"
   },
   "overrides": {
+    "browserslist": "^4.28.8",
     "dompurify": "^3.4.14"
   },
   "private": true,
