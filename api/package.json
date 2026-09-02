@@ -10,16 +10,16 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1112.0",
-    "@aws-sdk/client-sqs": "3.1112.0",
-    "@aws-sdk/client-sts": "3.1112.0",
-    "@aws-sdk/credential-providers": "3.1112.0",
-    "@aws-sdk/lib-storage": "3.1112.0",
+    "@aws-sdk/client-s3": "3.1121.0",
+    "@aws-sdk/client-sqs": "3.1121.0",
+    "@aws-sdk/client-sts": "3.1121.0",
+    "@aws-sdk/credential-providers": "3.1121.0",
+    "@aws-sdk/lib-storage": "3.1121.0",
     "@smithy/shared-ini-file-loader": "4.7.2",
     "fflate": "0.8.3",
-    "hono": "4.13.2",
+    "hono": "4.13.5",
     "mime-types": "3.0.2",
-    "zod": "4.4.3"
+    "zod": "4.5.1"
   },
   "devDependencies": {
     "@types/bun": "^1.4.0",
