@@ -19,23 +19,30 @@ FROM --platform=$BUILDPLATFORM deps AS frontend-builder
 COPY app ./app
 RUN bun run build
 
-# Stage 2: Backend Builder — bundle the API to a single file so the runtime image
-# carries no node_modules at all.
+# Stage 2: Backend Builder — compile the API, its dependencies and the Bun runtime into
+# one executable with precompiled bytecode, so the runtime image needs neither
+# node_modules nor a Bun install, and cold starts skip JS parsing. Bun cross-compiles
+# from the build platform: the target runtime is fetched per $TARGETARCH.
 FROM --platform=$BUILDPLATFORM deps AS backend-builder
+ARG TARGETARCH
 COPY api ./api
-RUN cd api && bun build src/index.ts --target=bun --outfile=/app/server.js
+RUN cd api && bun build src/index.ts --compile --bytecode --minify --sourcemap \
+      --target=bun-linux-$([ "$TARGETARCH" = amd64 ] && echo x64 || echo "$TARGETARCH") \
+      --outfile=/app/server
 
-# Stage 3: Final Runtime
-FROM oven/bun:1-slim
+# Stage 3: Final Runtime — glibc + libstdc++ only, no shell. Runs as root so the
+# optional ~/.aws:/root/.aws mount in docker-compose.yml keeps resolving.
+FROM gcr.io/distroless/cc-debian12
 WORKDIR /app
 
 # Copy frontend static assets
 COPY --from=frontend-builder /app/app/dist /app/static
 
-# Copy the bundled backend
-COPY --from=backend-builder /app/server.js /app/server.js
+# Copy the compiled backend
+COPY --from=backend-builder /app/server /app/server
 
 # Environment variables
+ENV NODE_ENV=production
 ENV ENABLE_S3=true
 ENV ENABLE_SQS=true
 
@@ -43,4 +50,4 @@ ENV ENABLE_SQS=true
 EXPOSE 8000
 
 # Run application
-CMD ["bun", "run", "/app/server.js"]
+CMD ["/app/server"]
