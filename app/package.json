@@ -19,7 +19,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx-preview": "^0.4.0",
-    "lucide-react": "^1.35.0",
+    "lucide-react": "^1.40.0",
     "marked": "^18.0.11",
     "monaco-editor": "^0.56.0",
     "react": "^19.2.8",
@@ -28,14 +28,13 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.0",
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
-    "babel-plugin-react-compiler": "^1.0.0",
+    "oxc-transform-react": "0.148.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"
   },
