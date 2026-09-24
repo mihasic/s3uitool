@@ -1,17 +1,16 @@
 # S3 & SQS UI for RustFS and ElasticMQ
 
 A single-container web application to manage S3 and SQS resources.
-S3 browser supports in-place editor with syntax highlighting for known textual formats and image viewer.
 
 ![Playwright S3 Screenshots](./assets/pw-bucket.gif)
 ![Playwright SQS Screenshots](./assets/pw-queues.gif)
 
 ## Features
 
-- **S3 Browser**: Browse buckets, view file contents (JSON, XML, YAML, etc.).
-- **S3 Management**: Edit, copy, move, and recursively delete files/folders.
-- **SQS Management**: View queues, send/receive/purge messages.
-- **Single Container**: Frontend and Backend served from one Docker image.
+- **S3**: browse buckets, view and edit files in place (syntax highlighting, images, docx), upload, copy, move, recursive delete.
+- **SQS**: queues with message counts, send/receive/purge messages.
+- **Profiles**: switch between several AWS accounts or emulators.
+- **Single container**: frontend and backend in one image.
 
 ## Usage
 
@@ -71,9 +70,8 @@ fully isolated: separate SDK clients, separate caches, and no cross-profile copy
 
 Profiles come from three sources:
 
-1. **The global `AWS_*` variables** — always present, always the default profile. This is
-   the behaviour every existing deployment already has; nothing changes if you set nothing
-   else. Rename it with `DEFAULT_PROFILE_ID` / `DEFAULT_PROFILE_LABEL`.
+1. **The global `AWS_*` variables** — always present, always the default profile. Rename it
+   with `DEFAULT_PROFILE_ID` / `DEFAULT_PROFILE_LABEL`.
 2. **Extra bindings declared as `PROFILE_<id>_*` groups**, for example a second bucket store
    or another emulator:
 
@@ -112,12 +110,11 @@ and the unprefixed `/api/s3/...` endpoints keep working.
 
 | Environment Variable | Default | Description |
 |----------------------|---------|-------------|
-| `AWS_S3_ENDPOINT_URL` | `http://localhost:9000` | URL of the S3 endpoint (e.g., RustFS). |
-| `AWS_SQS_ENDPOINT_URL` | `http://localhost:9324` | URL of the SQS endpoint (e.g., ElasticMQ). |
-| `AWS_ENDPOINT_URL` | `None` | Shared endpoint. Used for both services only when service-specific endpoints are not set. |
-| `AWS_DEFAULT_REGION` | `us-east-1` | AWS Region. |
-| `AWS_ACCESS_KEY_ID` | `test` | AWS Access Key ID. |
-| `AWS_SECRET_ACCESS_KEY` | `test` | AWS Secret Access Key. |
+| `AWS_S3_ENDPOINT_URL` | AWS | S3 endpoint (e.g. RustFS). |
+| `AWS_SQS_ENDPOINT_URL` | AWS | SQS endpoint (e.g. ElasticMQ). |
+| `AWS_ENDPOINT_URL` | AWS | Shared fallback for whichever service-specific endpoint is unset. |
+| `AWS_DEFAULT_REGION` | SDK default | AWS region. |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` | SDK default chain | Static credentials. |
 | `ENABLE_S3` | `true` | Enable S3 features. Overridable per profile. |
 | `ENABLE_SQS` | `true` | Enable SQS features. Overridable per profile. |
 | `DEFAULT_PROFILE_ID` | `default` | URL id of the profile built from the global `AWS_*` variables. |
@@ -129,22 +126,11 @@ and the unprefixed `/api/s3/...` endpoints keep working.
 | `PORT` | `8000` | Port the server listens on. |
 | `STATIC_DIR` | `/app/static` | Directory holding the built frontend. |
 
-Endpoint precedence:
-1. `AWS_S3_ENDPOINT_URL` for S3 and `AWS_SQS_ENDPOINT_URL` for SQS
-2. `AWS_ENDPOINT_URL` as a shared fallback for both services
-
 ## Development
 
-### Prerequisites
+Needs Docker (with Compose) and Bun. `api/` is Hono on Bun, `app/` React + Vite, `e2e/` Playwright.
 
-- Docker
-- Docker Compose
-- Bun (for local frontend and backend dev)
-
-### Local Configuration (.env)
-
-Create a `.env` file in the project root to configure local S3/SQS endpoints for development
-(the `dev:api` and `seed` scripts load it):
+`dev:api` and `seed` load a root `.env`:
 
 ```dotenv
 AWS_S3_ENDPOINT_URL=http://localhost:9000
@@ -154,69 +140,32 @@ AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
 ```
 
-### Project Structure
-
-- `api/`: TypeScript Hono backend (runs on Bun)
-- `app/`: React/Vite frontend
-- `e2e/`: Playwright End-to-End tests
-
-### Backend
-
 ```bash
 bun install
-bun run dev:api            # http://localhost:8000, hot reload
-```
-
-### Frontend
-
-```bash
-bun install
-bun run dev:app            # http://localhost:5173, proxies /api to :8000
-```
-
-### Both at once
-
-```bash
-bun run dev
-bun run dev:local          # same, but pointed at the local RustFS/ElasticMQ emulators
+bun run dev                # API :8000 (hot reload) + Vite :5173 (proxies /api)
+bun run dev:local          # same, pointed at the local emulators
 ```
 
 ### Testing
 
-#### API Integration Tests
-
-Needs the emulators running (`docker compose up -d rustfs elasticmq`):
-
 ```bash
-bun run test:api
-```
+docker compose up -d rustfs elasticmq
+bun run test:api           # API integration tests against the emulators
+bun run test:app
 
-#### End-to-End Tests
-
-The default config starts the whole dev stack itself (`bun run dev`) and reuses one that
-is already up:
-
-```bash
-cd e2e && bunx playwright test
-```
-
-Alternatively, point Playwright straight at the built container and skip Vite:
-
-```bash
-docker compose up -d --build
-bun run seed
+cd e2e && bunx playwright test                     # starts `bun run dev` itself, or reuses it
+docker compose up -d --build && bun run seed       # or: against the built container
 cd e2e && APP_PORT=8000 bunx playwright test
 ```
 
 ## Release
 
-To release a new version:
+```bash
+gh workflow run release.yml --ref main -f version=X.Y.Z
+```
 
-1. Go to the "Actions" tab in GitHub.
-2. Select the "Release" workflow.
-3. Click "Run workflow".
-4. Enter the version tag (e.g., `0.1.0`).
-5. The workflow will build the Docker image and push it to GHCR.
+Re-runs CI, then pushes a multi-arch image to `ghcr.io/mihasic/s3uitool:X.Y.Z` and `:latest`
+and creates a GitHub release.
 
 ## License
 

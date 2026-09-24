@@ -2,7 +2,7 @@
 
 S3/SQS browser served as a single container: `api/` (Hono on Bun) serves the built
 `app/` (React + Vite) as static files. `e2e/` is Playwright. One Bun workspace, one
-`biome.json`, one `tsconfig.json`.
+`biome.json`, a root `tsconfig.json` referencing `api/` and `app/`.
 
 ## Commands
 
@@ -16,7 +16,9 @@ bun run check       # Biome, whole repo
 bun run typecheck   # tsc -b, both workspaces
 ```
 
-E2E runs against the built container, not Vite:
+Dependency bumps and the rest of the routine upkeep: the `/chore` skill.
+
+CI runs E2E against the built container, not Vite:
 
 ```bash
 docker compose up -d --build && bun run seed
