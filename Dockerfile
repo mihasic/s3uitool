@@ -31,7 +31,7 @@ RUN cd api && bun run build \
 
 # Stage 3: Final Runtime — glibc + libstdc++ only, no shell. Runs as root so the
 # optional ~/.aws:/root/.aws mount in docker-compose.yml keeps resolving.
-FROM gcr.io/distroless/cc-debian12
+FROM gcr.io/distroless/cc-debian13
 WORKDIR /app
 
 COPY --from=frontend-builder /app/app/dist /app/static
