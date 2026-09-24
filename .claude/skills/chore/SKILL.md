@@ -33,9 +33,8 @@ bun outdated --filter '*'
   rm bun.lock && bun install
   grep -oE '"@smithy/core@[0-9][^"]*"' bun.lock | sort -u   # exactly one
   ```
-- `biome.json` `$schema` version = `@biomejs/biome` version.
-- `oxc-transform-react` bump: confirm the React Compiler still fires — entry chunk ~285 kB
-  (vs ~258 kB off); definitive: lib-build one component unminified, look for `c(N)`.
+- `oxc-transform-react` bump: confirm the React Compiler still fires after `bun run build`:
+  `grep -l memo_cache_sentinel app/dist/assets/*.js` must list files.
 
 ## 3. Audit
 
@@ -43,7 +42,7 @@ bun outdated --filter '*'
 bun audit
 ```
 
-CI's `build` job and `release.yml` both run it, so any advisory blocks a release.
+CI's `build` job runs it and `release.yml` re-runs CI, so any advisory blocks a release.
 Transitive-only → root `overrides` in `package.json`. Every override must move the
 resolution (verify in `bun.lock`, e.g. `monaco-editor` pins `dompurify` lower); delete dead ones.
 
@@ -61,7 +60,7 @@ action publishes no major tag. Also check `Dockerfile` bases (`oven/bun:1`,
 ## 5. Verify
 
 ```bash
-bun run check && bun run typecheck && bun run test:app && bun run build
+bun run check && bun run typecheck && bun run test:app && bun run --filter '*' build
 docker compose up -d rustfs elasticmq && bun run test:api
 ```
 
@@ -103,7 +102,7 @@ Body: bumps table, held-back majors, audit, action/image changes, review fixes, 
 ## 9. Release — only when asked
 
 ```bash
-bun audit                                                         # on main, right before
+bun audit                                                         # on main: a fresh advisory would fail the run
 git ls-remote --tags --refs origin | awk -F/ '{print $3}' | sort -V | tail -1
 ```
 

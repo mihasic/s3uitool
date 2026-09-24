@@ -153,9 +153,9 @@ docker compose up -d rustfs elasticmq
 bun run test:api           # API integration tests against the emulators
 bun run test:app
 
-cd e2e && bunx playwright test                     # starts `bun run dev` itself, or reuses it
+bun run test:e2e                                   # starts `bun run dev` itself, or reuses it
 docker compose up -d --build && bun run seed       # or: against the built container
-cd e2e && APP_PORT=8000 bunx playwright test
+APP_PORT=8000 bun run test:e2e
 ```
 
 ## Release

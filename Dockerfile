@@ -1,8 +1,7 @@
 # Shared dependency layer: one install for both builders, so the frontend and the
 # backend bundle can be produced in parallel without paying for `bun install` twice.
 #
-# Every builder stage is pinned to $BUILDPLATFORM: the static files carry no machine code
-# and the backend cross-compiles per $TARGETARCH, so building per target architecture only
+# Every builder stage is pinned to $BUILDPLATFORM: building per target architecture only
 # bought a second, concurrent Vite build — and two of those deadlock each other, since
 # Monaco's workers make each one spawn nested rolldown builds.
 FROM --platform=$BUILDPLATFORM oven/bun:1 AS deps
@@ -35,19 +34,12 @@ RUN cd api && bun run build \
 FROM gcr.io/distroless/cc-debian12
 WORKDIR /app
 
-# Copy frontend static assets
 COPY --from=frontend-builder /app/app/dist /app/static
-
-# Copy the compiled backend
 COPY --from=backend-builder /app/server /app/server
 
-# Environment variables
 ENV NODE_ENV=production
 ENV ENABLE_S3=true
 ENV ENABLE_SQS=true
-
-# Expose port
 EXPOSE 8000
 
-# Run application
 CMD ["/app/server"]
