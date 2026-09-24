@@ -2,7 +2,7 @@
 
 S3/SQS browser served as a single container: `api/` (Hono on Bun) serves the built
 `app/` (React + Vite) as static files. `e2e/` is Playwright. One Bun workspace, one
-`biome.json`, one `tsconfig.json`.
+`biome.json`, a root `tsconfig.json` referencing `api/` and `app/`.
 
 ## Commands
 
@@ -16,11 +16,13 @@ bun run check       # Biome, whole repo
 bun run typecheck   # tsc -b, both workspaces
 ```
 
-E2E runs against the built container, not Vite:
+Dependency bumps and the rest of the routine upkeep: the `/chore` skill.
+
+CI runs E2E against the built container, not Vite:
 
 ```bash
 docker compose up -d --build && bun run seed
-cd e2e && APP_PORT=8000 bunx playwright test
+APP_PORT=8000 bun run test:e2e
 ```
 
 The API targets no client but `app/`; the two change together.
@@ -31,10 +33,8 @@ TanStack Query for server state, `sonner` toasts via `reportError`, `ApiError` i
 
 ## Environment
 
-`AWS_S3_ENDPOINT_URL` / `AWS_SQS_ENDPOINT_URL` take precedence over the shared
-`AWS_ENDPOINT_URL`. Beyond the usual AWS vars and `ENABLE_S3` / `ENABLE_SQS`:
-`MAX_UPLOAD_MB` (default 512) bounds both upload size and per-upload memory, since Bun
-buffers multipart bodies; `STATIC_DIR` (default `/app/static`) locates the built frontend.
+Full table: README "Configuration". Non-obvious: `MAX_UPLOAD_MB` also bounds per-upload
+memory, since Bun buffers multipart bodies.
 
 ## Profiles
 
