@@ -1,10 +1,10 @@
 # Shared dependency layer: one install for both builders, so the frontend and the
 # backend bundle can be produced in parallel without paying for `bun install` twice.
 #
-# Every builder stage is pinned to $BUILDPLATFORM: the artifacts they produce (static
-# files, a `--target=bun` bundle) carry no machine code, so building them per target
-# architecture only bought a second, concurrent Vite build — and two of those deadlock
-# each other, since Monaco's workers make each one spawn nested rolldown builds.
+# Every builder stage is pinned to $BUILDPLATFORM: the static files carry no machine code
+# and the backend cross-compiles per $TARGETARCH, so building per target architecture only
+# bought a second, concurrent Vite build — and two of those deadlock each other, since
+# Monaco's workers make each one spawn nested rolldown builds.
 FROM --platform=$BUILDPLATFORM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -26,8 +26,8 @@ RUN bun run build
 FROM --platform=$BUILDPLATFORM deps AS backend-builder
 ARG TARGETARCH
 COPY api ./api
-RUN cd api && bun build src/index.ts --compile --bytecode --minify --sourcemap \
-      --target=bun-linux-$([ "$TARGETARCH" = amd64 ] && echo x64 || echo "$TARGETARCH") \
+RUN cd api && bun run build \
+      --target=bun-linux-$([ "$TARGETARCH" = amd64 ] && echo x64-baseline || echo "$TARGETARCH") \
       --outfile=/app/server
 
 # Stage 3: Final Runtime — glibc + libstdc++ only, no shell. Runs as root so the
