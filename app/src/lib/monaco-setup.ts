@@ -18,6 +18,7 @@ import "monaco-editor/languages/definitions/sql/register";
 import "monaco-editor/languages/definitions/css/register";
 import "monaco-editor/languages/definitions/scss/register";
 import "monaco-editor/languages/definitions/html/register";
+import "monaco-editor/languages/definitions/restructuredtext/register";
 
 // Rich Languages (Workers)
 // Only needed for advanced features like validation/formatting/autocomplete
