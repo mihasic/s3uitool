@@ -1,6 +1,5 @@
 import { CreateBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { CreateQueueCommand, SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
-import { lookup as lookupMime } from "mime-types";
 
 // Hardcoding the endpoints keeps the seed script runnable standalone, independent
 // of whatever the app's own config resolves to.
@@ -80,7 +79,7 @@ async function seedS3(): Promise<void> {
   }
 
   for (const [bucket, key, content] of FILES) {
-    const contentType = lookupMime(key) || "application/octet-stream";
+    const contentType = Bun.file(key).type;
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: content, ContentType: contentType }));
     console.log(`Uploaded ${key} to ${bucket} as ${contentType}`);
   }

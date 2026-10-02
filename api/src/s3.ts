@@ -12,7 +12,6 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { lookup as lookupMime } from "mime-types";
 import { z } from "zod";
 import { getS3Client } from "./aws";
 import type { AppEnv } from "./context";
@@ -244,10 +243,7 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
 
   let contentType = response.ContentType || "application/octet-stream";
   // If generic or missing, try to guess from filename
-  if (contentType === "application/octet-stream") {
-    const guessed = lookupMime(key);
-    if (guessed) contentType = guessed;
-  }
+  if (contentType === "application/octet-stream") contentType = Bun.file(key).type;
   // Without a charset, `?inline=true` previews of UTF-8 text render as mojibake.
   if (contentType.startsWith("text/") && !contentType.includes("charset=")) contentType += "; charset=utf-8";
 
@@ -268,10 +264,10 @@ s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
   const file = form.get("file");
   if (!(file instanceof File)) return c.json({ error: "Expected a multipart body with a `file` field" }, 400);
 
-  const contentType = file.type || lookupMime(key) || undefined;
+  const contentType = file.type || Bun.file(key).type;
   await new Upload({
     client: c.get("s3"),
-    params: { Bucket: bucket, Key: key, Body: file, ...(contentType ? { ContentType: contentType } : {}) },
+    params: { Bucket: bucket, Key: key, Body: file, ContentType: contentType },
   }).done();
 
   return c.json({ message: "File uploaded successfully" });
