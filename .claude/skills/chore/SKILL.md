@@ -25,7 +25,8 @@ bun outdated --filter '*'
 
 - Majors (`Latest` major > current): list them, **ask** before taking.
 - Set each manifest to the `Update` / `Latest` version, keeping its spec style (`api/` and
-  napi/Playwright pins exact, the rest carets).
+  napi/Playwright pins exact, the rest carets). Exception: `api`'s `@smithy/core` is a caret so
+  it dedupes with the SDK's copy.
 - Re-resolve from scratch — `bun update` leaves locked transitives alone, which splits the
   AWS/Smithy tree into two copies:
 

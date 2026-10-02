@@ -2,19 +2,17 @@
   "name": "s3uitool",
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "concurrently": "^10.0.5",
-    "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.5.1",
+    "lint-staged": "^17.6.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
-    "dompurify": "^3.4.14"
+    "dompurify": "^3.4.16"
   },
   "private": true,
   "scripts": {
-    "dev:local": "cross-env AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
-    "dev": "concurrently \"bun run dev:api\" \"bun run dev:app\" --names \"API,APP\" --prefix-colors \"blue,green\"",
+    "dev:local": "AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN= bun run dev",
+    "dev": "bun run --parallel dev:api dev:app",
     "dev:app": "bun run --filter app dev",
     "dev:api": "bun run --filter api dev",
     "build": "bun run --filter app build",
