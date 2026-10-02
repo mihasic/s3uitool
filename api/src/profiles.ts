@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import type { S3ClientConfig } from "@aws-sdk/client-s3";
 import { fromIni, fromNodeProviderChain } from "@aws-sdk/credential-providers";
-import { loadSharedConfigFiles } from "@smithy/shared-ini-file-loader";
+import { loadSharedConfigFiles } from "@smithy/core/config";
 
 export type ProfileSource = "env" | "ambient" | "ini";
 
