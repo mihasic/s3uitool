@@ -3,10 +3,10 @@ import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   ListBucketsCommand,
   ListObjectsV2Command,
   type ListObjectsV2CommandInput,
+  paginateListObjectsV2,
   type S3Client,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
@@ -14,11 +14,10 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getS3Client } from "./aws";
-import type { AppEnv } from "./context";
+import { type AppEnv, requireService } from "./context";
 import { dateTime, nullable, respondWith, stringMap } from "./model";
 import { type ZipEntry, zipStream } from "./zip";
 
-const S3_DELETE_BATCH_SIZE = 1000;
 const BATCH_CONCURRENCY = 10;
 
 const bucketModel = z.object({
@@ -62,44 +61,30 @@ type PrefixParams = {
 
 export const s3Routes = new Hono<AppEnv>();
 
-s3Routes.use("*", async (c, next) => {
-  const profile = c.get("profile");
-  if (!profile.s3) throw new HTTPException(404, { message: `S3 is not enabled for profile "${profile.id}"` });
-  c.set("s3", getS3Client(profile));
-  await next();
-});
+s3Routes.use("*", requireService("s3", getS3Client));
 
-/** Yield every object key under `prefix` across all pages. */
+async function* allObjectPages(s3: S3Client, bucket: string, prefix: string): AsyncGenerator<string[]> {
+  for await (const page of paginateListObjectsV2({ client: s3 }, { Bucket: bucket, Prefix: prefix })) {
+    yield (page.Contents ?? []).flatMap((obj) => (obj.Key === undefined ? [] : [obj.Key]));
+  }
+}
+
 async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): AsyncGenerator<string> {
-  let token: string | undefined;
-  do {
-    const page = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
-    for (const obj of page.Contents ?? []) {
-      if (obj.Key !== undefined) yield obj.Key;
-    }
-    token = page.IsTruncated ? page.NextContinuationToken : undefined;
-  } while (token);
+  for await (const page of allObjectPages(s3, bucket, prefix)) yield* page;
 }
 
 async function fetchObjects(
   s3: S3Client,
   bucket: string,
-  prefix: string,
-  continuationToken?: string | null,
-  maxKeys = 1000,
-  filterText?: string | null,
-  delimiter = "/",
+  { prefix, continuation_token, max_keys = 1000, filter_text, delimiter = "/" }: PrefixParams,
 ): Promise<ObjectList> {
-  let s3Prefix = prefix;
-  if (filterText) s3Prefix += filterText;
-
   const input: ListObjectsV2CommandInput = {
     Bucket: bucket,
-    Prefix: s3Prefix,
+    Prefix: filter_text ? prefix + filter_text : prefix,
     Delimiter: delimiter,
-    MaxKeys: maxKeys,
+    MaxKeys: max_keys,
   };
-  if (continuationToken) input.ContinuationToken = continuationToken;
+  if (continuation_token) input.ContinuationToken = continuation_token;
 
   const response = await s3.send(new ListObjectsV2Command(input));
 
@@ -155,33 +140,22 @@ s3Routes.get("/buckets/:bucket/objects", async (c) => {
   const q = c.req.query();
   return respondWith(
     objectListModel,
-    await fetchObjects(
-      c.get("s3"),
-      c.req.param("bucket"),
-      q.prefix ?? "",
-      q.continuation_token ?? null,
-      intParam(q.max_keys, 1000),
-      q.filter_text ?? null,
-      q.delimiter ?? "/",
-    ),
+    await fetchObjects(c.get("s3"), c.req.param("bucket"), {
+      prefix: q.prefix ?? "",
+      continuation_token: q.continuation_token,
+      max_keys: intParam(q.max_keys, 1000),
+      filter_text: q.filter_text,
+      delimiter: q.delimiter,
+    }),
   );
 });
 
 s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
   const bucket = c.req.param("bucket");
-  const body = await c.req.json<{ prefixes?: string[]; requests?: PrefixParams[] }>();
+  const body = await c.req.json<{ requests?: PrefixParams[] }>();
   const s3 = c.get("s3");
 
-  const jobs: { prefix: string; run: () => Promise<ObjectList> }[] = [
-    // Legacy simple prefixes list
-    ...(body.prefixes ?? []).map((p) => ({ prefix: p, run: () => fetchObjects(s3, bucket, p) })),
-    // Newer complex requests
-    ...(body.requests ?? []).map((r) => ({
-      prefix: r.prefix,
-      run: () =>
-        fetchObjects(s3, bucket, r.prefix, r.continuation_token, r.max_keys ?? 1000, r.filter_text, r.delimiter ?? "/"),
-    })),
-  ];
+  const jobs = (body.requests ?? []).map((r) => ({ prefix: r.prefix, run: () => fetchObjects(s3, bucket, r) }));
 
   const results: Record<string, ObjectList> = {};
   const settled = await mapWithConcurrency(jobs, BATCH_CONCURRENCY, async (job) => {
@@ -212,27 +186,23 @@ s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
   const key = c.req.param("key");
   const s3 = c.get("s3");
 
-  // Get metadata first
-  const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 
   let content: string | null = null;
   try {
-    const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    const bytes = await response.Body?.transformToByteArray();
-    content = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    content = new TextDecoder("utf-8", { fatal: true }).decode(await obj.Body?.transformToByteArray());
   } catch (e) {
     if (!(e instanceof TypeError)) throw e;
-    content = null; // Binary content
   }
 
   return respondWith(s3ObjectContentModel, {
     Key: key,
-    LastModified: head.LastModified,
-    ETag: head.ETag,
-    Size: head.ContentLength,
-    StorageClass: head.StorageClass,
-    ContentType: head.ContentType,
-    Metadata: head.Metadata,
+    LastModified: obj.LastModified,
+    ETag: obj.ETag,
+    Size: obj.ContentLength,
+    StorageClass: obj.StorageClass,
+    ContentType: obj.ContentType,
+    Metadata: obj.Metadata,
     Content: content,
   });
 });
@@ -280,20 +250,18 @@ s3Routes.delete("/buckets/:bucket/objects/:key{.+}", async (c) => {
 
 s3Routes.post("/buckets/:bucket/delete-prefix", async (c) => {
   const bucket = c.req.param("bucket");
-  const { prefix } = await c.req.json<{ prefix: string }>();
+  const { prefix } = await c.req.json<{ prefix: unknown }>();
+  if (typeof prefix !== "string") throw new HTTPException(400, { message: "Expected a string `prefix`" });
   const s3 = c.get("s3");
 
-  const keys: { Key: string }[] = [];
-  for await (const key of allObjectKeys(s3, bucket, prefix)) keys.push({ Key: key });
-
-  // Delete in batches (S3 limit)
-  for (let i = 0; i < keys.length; i += S3_DELETE_BATCH_SIZE) {
-    await s3.send(
-      new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.slice(i, i + S3_DELETE_BATCH_SIZE) } }),
-    );
+  let count = 0;
+  for await (const keys of allObjectPages(s3, bucket, prefix)) {
+    if (keys.length === 0) continue;
+    await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.map((Key) => ({ Key })) } }));
+    count += keys.length;
   }
 
-  return c.json({ message: `Deleted ${keys.length} objects` });
+  return c.json({ message: `Deleted ${count} objects` });
 });
 
 /** `CopySource` is a raw path that must be percent-encoded per segment. */
@@ -338,21 +306,23 @@ s3Routes.post("/copy-prefix", async (c) => {
   const s3 = c.get("s3");
 
   let count = 0;
-  for await (const srcKey of allObjectKeys(s3, req.source_bucket, req.source_prefix)) {
-    if (!srcKey.startsWith(req.source_prefix)) continue;
-    const destKey = req.destination_prefix + srcKey.slice(req.source_prefix.length);
-
-    await s3.send(
-      new CopyObjectCommand({
-        Bucket: req.destination_bucket,
-        Key: destKey,
-        CopySource: copySource(req.source_bucket, srcKey),
-      }),
+  for await (const page of allObjectPages(s3, req.source_bucket, req.source_prefix)) {
+    const keys = page.filter((key) => key.startsWith(req.source_prefix));
+    await mapWithConcurrency(keys, BATCH_CONCURRENCY, (srcKey) =>
+      s3.send(
+        new CopyObjectCommand({
+          Bucket: req.destination_bucket,
+          Key: req.destination_prefix + srcKey.slice(req.source_prefix.length),
+          CopySource: copySource(req.source_bucket, srcKey),
+        }),
+      ),
     );
-
-    if (req.move) await s3.send(new DeleteObjectCommand({ Bucket: req.source_bucket, Key: srcKey }));
-
-    count += 1;
+    if (req.move && keys.length > 0) {
+      await s3.send(
+        new DeleteObjectsCommand({ Bucket: req.source_bucket, Delete: { Objects: keys.map((Key) => ({ Key })) } }),
+      );
+    }
+    count += keys.length;
   }
 
   return c.json({ message: `Successfully ${req.move ? "moved" : "copied"} ${count} objects` });
