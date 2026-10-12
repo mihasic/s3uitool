@@ -54,14 +54,15 @@ const DUAL_PREVIEW_KINDS: Record<string, DualPreviewKind> = {
   svg: "svg",
 };
 
+export const fileExtension = (filename: string) => filename.split(".").pop()?.toLowerCase() ?? "";
+
 export const getDualPreviewKind = (filename: string): DualPreviewKind | null => {
-  const ext = filename.split(".").pop()?.toLowerCase();
+  const ext = fileExtension(filename);
   return (ext && DUAL_PREVIEW_KINDS[ext]) || null;
 };
 
 export const getLanguageFromFilename = (filename: string): string => {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
+  switch (fileExtension(filename)) {
     case "js":
     // eslint-disable-next-line no-fallthrough
     case "jsx":

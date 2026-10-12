@@ -39,7 +39,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ConfirmContext.Provider value={confirm}>
+    <ConfirmContext value={confirm}>
       {children}
       <Dialog open={options !== null} onOpenChange={(open) => !open && settle(false)}>
         <DialogContent
@@ -60,7 +60,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </ConfirmContext.Provider>
+    </ConfirmContext>
   );
 }
 

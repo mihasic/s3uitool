@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProfileId } from "@/hooks/useProfileApi";
-import { IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
+import { fileExtension, IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
 import type { TableItem, ViewMode } from "@/types/s3";
 
 interface ObjectListTableProps {
@@ -59,7 +59,7 @@ export function ObjectListTable({
     // If no extension, we still allow previewing as it could be an image or text
     if (!filename.includes(".")) return true;
 
-    const ext = filename.split(".").pop()?.toLowerCase();
+    const ext = fileExtension(filename);
     return !!(ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx"));
   };
 

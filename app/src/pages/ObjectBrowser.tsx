@@ -11,7 +11,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { useProfileApi } from "@/hooks/useProfileApi";
 import { reportError } from "@/lib/errors";
-import { getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
 const route = getRouteApi("/$profile/s3/$bucket");
 
@@ -68,7 +68,7 @@ export function ObjectBrowser() {
   const handleView = useCallback(
     async (key: string) => {
       if (!bucket) return;
-      const ext = key.split(".").pop()?.toLowerCase();
+      const ext = fileExtension(key);
       const isDual = !!getDualPreviewKind(key);
 
       if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) {
