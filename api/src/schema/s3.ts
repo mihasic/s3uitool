@@ -30,26 +30,12 @@ export const objectListModel = z.object({
   IsTruncated: z.boolean().default(false),
 });
 
-export const objectListBatchModel = z.record(z.string(), objectListModel);
-
-export const prefixParamsModel = z.object({
-  prefix: z.string(),
-  continuation_token: z.string().nullish(),
-  max_keys: z.number().int().positive().optional(),
-  filter_text: z.string().nullish(),
-  delimiter: z.string().optional(),
-});
-
 export const objectListQueryModel = z.object({
   prefix: z.string().default(""),
   continuation_token: z.string().optional(),
   max_keys: z.coerce.number().int().positive().catch(1000),
   filter_text: z.string().optional(),
   delimiter: z.string().optional(),
-});
-
-export const objectListBatchRequestModel = z.object({
-  requests: z.array(prefixParamsModel).default([]),
 });
 
 export const deletePrefixRequestModel = z.object({ prefix: z.string() });
@@ -77,9 +63,7 @@ export type S3Object = z.output<typeof s3ObjectModel>;
 export type S3ObjectContent = z.output<typeof s3ObjectContentModel>;
 export type CommonPrefix = z.output<typeof commonPrefixModel>;
 export type ObjectList = z.output<typeof objectListModel>;
-export type ObjectListBatch = z.output<typeof objectListBatchModel>;
-export type PrefixParams = z.input<typeof prefixParamsModel>;
-export type ObjectListBatchRequest = z.input<typeof objectListBatchRequestModel>;
+export type ObjectListQuery = z.output<typeof objectListQueryModel>;
 export type DeletePrefixRequest = z.input<typeof deletePrefixRequestModel>;
 export type CopyRequest = z.input<typeof copyRequestModel>;
 export type CopyPrefixRequest = z.input<typeof copyPrefixRequestModel>;

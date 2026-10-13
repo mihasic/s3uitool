@@ -22,11 +22,9 @@ import {
   copyRequestModel,
   deletePrefixRequestModel,
   downloadPrefixQueryModel,
-  objectListBatchModel,
-  objectListBatchRequestModel,
+  type ObjectListQuery,
   objectListModel,
   objectListQueryModel,
-  type PrefixParams,
   s3ObjectContentModel,
   type s3ObjectModel,
 } from "./schema/s3";
@@ -54,7 +52,7 @@ async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): Asy
 async function fetchObjects(
   s3: S3Client,
   bucket: string,
-  { prefix, continuation_token, max_keys = 1000, filter_text, delimiter = "/" }: PrefixParams,
+  { prefix, continuation_token, max_keys = 1000, filter_text, delimiter = "/" }: ObjectListQuery,
 ): Promise<ObjectList> {
   const input: ListObjectsV2CommandInput = {
     Bucket: bucket,
@@ -110,37 +108,6 @@ s3Routes.get("/buckets", async (c) => {
 
 s3Routes.get("/buckets/:bucket/objects", validate("query", objectListQueryModel), async (c) => {
   return respondWith(objectListModel, await fetchObjects(c.get("s3"), c.req.param("bucket"), c.req.valid("query")));
-});
-
-s3Routes.post("/buckets/:bucket/objects/batch", validate("json", objectListBatchRequestModel), async (c) => {
-  const bucket = c.req.param("bucket");
-  const body = c.req.valid("json");
-  const s3 = c.get("s3");
-
-  const jobs = body.requests.map((r) => ({ prefix: r.prefix, run: () => fetchObjects(s3, bucket, r) }));
-
-  const results: Record<string, ObjectList> = {};
-  const settled = await mapWithConcurrency(jobs, BATCH_CONCURRENCY, async (job) => {
-    try {
-      return { prefix: job.prefix, value: await job.run() };
-    } catch (e) {
-      // One bad prefix must not fail the batch.
-      console.warn(`Error fetching prefix ${job.prefix}: ${e}`);
-      return {
-        prefix: job.prefix,
-        value: {
-          Objects: [],
-          CommonPrefixes: [],
-          Prefix: job.prefix,
-          NextContinuationToken: null,
-          IsTruncated: false,
-        } satisfies ObjectList,
-      };
-    }
-  });
-  for (const { prefix, value } of settled) results[prefix] = value;
-
-  return respondWith(objectListBatchModel, results);
 });
 
 s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
