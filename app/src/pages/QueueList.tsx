@@ -1,3 +1,4 @@
+import type { Queue } from "@api/schema/sqs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
@@ -8,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useQueues } from "@/hooks/useApi";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
-import type { Queue } from "@/types/s3";
 
 function QueueCounts({ queue }: { queue: Queue }) {
   if (queue.Available === null) return <span className="text-muted-foreground">&mdash;</span>;

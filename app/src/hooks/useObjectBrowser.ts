@@ -1,16 +1,9 @@
+import type { ObjectListBatch, ObjectListBatchRequest, PrefixParams } from "@api/schema/s3";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
-import type { ObjectListResponse, TableItem, ViewMode } from "@/types/s3";
-
-interface PrefixParams {
-  prefix: string;
-  continuation_token?: string | null;
-  max_keys?: number;
-  filter_text?: string | null;
-  delimiter?: string;
-}
+import type { TableItem, ViewMode } from "@/types/s3";
 
 export function useObjectBrowser(bucket: string | undefined, prefix: string) {
   const api = useProfileApi();
@@ -60,7 +53,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     localStorage.setItem("viewMode", viewMode);
   }, [viewMode]);
 
-  const [folderContent, setFolderContent] = useState<Record<string, ObjectListResponse>>({});
+  const [folderContent, setFolderContent] = useState<ObjectListBatch>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +144,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
 
         // Batch requests logic
         const BATCH_SIZE = 20;
-        const results: Record<string, ObjectListResponse> = {};
+        const results: ObjectListBatch = {};
         const requestChunks: PrefixParams[][] = [];
 
         for (let i = 0; i < requests.length; i += BATCH_SIZE) {
@@ -161,11 +154,11 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
         await Promise.all(
           requestChunks.map(async (chunk) => {
             if (abortController.signal.aborted) return;
-            const chunkResult = await api.post<Record<string, ObjectListResponse>>(
+            const chunkResult = await api.post<ObjectListBatch>(
               `s3/buckets/${bucket}/objects/batch`,
               {
                 requests: chunk,
-              },
+              } satisfies ObjectListBatchRequest,
               { signal: abortController.signal },
             );
             Object.assign(results, chunkResult);
@@ -258,7 +251,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
           name: fileName,
           depth: 0,
           size: o.Size,
-          lastModified: o.LastModified,
+          lastModified: o.LastModified ?? undefined,
           etag: o.ETag,
         } as TableItem;
       });
@@ -296,7 +289,7 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
           name: fileName,
           depth,
           size: o.Size,
-          lastModified: o.LastModified,
+          lastModified: o.LastModified ?? undefined,
           etag: o.ETag,
         });
       });

@@ -1,10 +1,11 @@
+import type { AppConfig } from "@api/schema/config";
 import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
 import { BucketList } from "@/pages/BucketList";
 import { MessageList } from "@/pages/MessageList";
 import { ObjectBrowser } from "@/pages/ObjectBrowser";
 import { QueueList } from "@/pages/QueueList";
-import { type AppConfig, activeProfile, findProfile } from "@/types/config";
+import { activeProfile, findProfile } from "@/types/config";
 
 interface RouterContext {
   // Populated by RouterProvider from ConfigContext; null while loading.

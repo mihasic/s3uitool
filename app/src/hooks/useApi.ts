@@ -1,6 +1,7 @@
+import type { Bucket } from "@api/schema/s3";
+import type { Queue } from "@api/schema/sqs";
 import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
-import type { Bucket, Queue } from "@/types/s3";
 
 /**
  * Hook for fetching all S3 buckets

@@ -1,8 +1,8 @@
+import type { Identity, ProfileSource, PublicProfile } from "@api/schema/config";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useConfig } from "@/contexts/ConfigContext";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
-import type { Identity, Profile, ProfileSource } from "@/types/config";
 
 const GROUP_LABELS: Record<ProfileSource, string> = {
   env: "Configured",
@@ -12,7 +12,7 @@ const GROUP_LABELS: Record<ProfileSource, string> = {
 
 const GROUP_ORDER: ProfileSource[] = ["env", "ini", "ambient"];
 
-function groupBySource(profiles: Profile[]) {
+function groupBySource(profiles: PublicProfile[]) {
   return GROUP_ORDER.map((source) => ({ source, group: profiles.filter((p) => p.source === source) })).filter(
     ({ group }) => group.length > 0,
   );

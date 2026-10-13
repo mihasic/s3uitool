@@ -1,3 +1,4 @@
+import type { CopyPrefixRequest, CopyRequest, DeletePrefixRequest, S3ObjectContent } from "@api/schema/s3";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { toast } from "sonner";
@@ -96,9 +97,7 @@ export function ObjectBrowser() {
     }
 
     try {
-      const response = await api.get<{ Content: string | null; ContentType: string }>(
-        `s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`,
-      );
+      const response = await api.get<S3ObjectContent>(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`);
 
       if ((!isDual || response.Content === null) && response.ContentType?.toLowerCase().startsWith("image/")) {
         setSelectedFile({
@@ -147,7 +146,7 @@ export function ObjectBrowser() {
     });
     if (!ok) return;
     try {
-      await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix });
+      await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix } satisfies DeletePrefixRequest);
       toast.success("Folder deleted successfully");
       refresh();
     } catch (err) {
@@ -274,7 +273,7 @@ export function ObjectBrowser() {
           destination_bucket: bucket,
           destination_prefix: dest,
           move: copyMoveAction === "move",
-        });
+        } satisfies CopyPrefixRequest);
       } else {
         await api.post("s3/copy", {
           source_bucket: bucket,
@@ -282,7 +281,7 @@ export function ObjectBrowser() {
           destination_bucket: bucket,
           destination_key: destinationKey,
           move: copyMoveAction === "move",
-        });
+        } satisfies CopyRequest);
       }
 
       refresh();

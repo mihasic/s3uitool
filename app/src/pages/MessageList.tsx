@@ -1,3 +1,4 @@
+import type { Message, SendMessageRequest } from "@api/schema/sqs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
@@ -11,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { profileKey, useProfileApi } from "@/hooks/useProfileApi";
 import { getErrorMessage, reportError } from "@/lib/errors";
 import { detectLanguage } from "@/lib/file-utils";
-import type { Message } from "@/types/s3";
 
 // Monaco is most of the bundle — pull it in only when a message is opened.
 const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
@@ -41,7 +41,10 @@ export function MessageList() {
 
   const sendMutation = useMutation({
     mutationFn: (vars: { body: string; delaySeconds: number }) =>
-      api.post(`sqs/queues/${queueName}/messages`, { Body: vars.body, DelaySeconds: vars.delaySeconds }),
+      api.post(`sqs/queues/${queueName}/messages`, {
+        Body: vars.body,
+        DelaySeconds: vars.delaySeconds,
+      } satisfies SendMessageRequest),
     onSuccess: () => {
       toast.success("Message sent successfully");
       queryClient.invalidateQueries({ queryKey: messagesKey });

@@ -61,7 +61,7 @@ export function BucketList() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Created: {new Date(bucket.CreationDate).toLocaleDateString()}
+                  Created: {new Date(bucket.CreationDate ?? 0).toLocaleDateString()}
                 </p>
               </CardContent>
             </Card>
