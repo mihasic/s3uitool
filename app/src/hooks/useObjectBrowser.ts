@@ -1,359 +1,130 @@
-import type { ObjectListBatch, ObjectListBatchRequest, PrefixParams } from "@api/schema/s3";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ObjectList } from "@api/schema/s3";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
+import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
-import type { TableItem, ViewMode } from "@/types/s3";
+import { buildItems, reachablePrefixes } from "@/lib/object-tree";
+import type { ViewMode } from "@/types/s3";
 
-export function useObjectBrowser(bucket: string | undefined, prefix: string) {
+interface ListingParams {
+  prefix: string;
+  filter_text?: string;
+  continuation_token?: string;
+  max_keys?: number;
+  delimiter?: string;
+}
+
+function savedViewMode(): ViewMode {
+  const saved = localStorage.getItem("viewMode");
+  return saved === "folder" || saved === "tree" || saved === "flat" ? saved : "folder";
+}
+
+function listingSearch(params: ListingParams): string {
+  const search = new URLSearchParams();
+  for (const [name, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(name, String(value));
+  }
+  return search.toString();
+}
+
+export function useObjectBrowser(bucket: string, prefix: string) {
   const api = useProfileApi();
   const profile = useProfileId();
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const saved = localStorage.getItem("viewMode");
-    if (saved === "folder" || saved === "tree" || saved === "flat") {
-      return saved;
-    }
-    return "folder";
-  });
+  const queryClient = useQueryClient();
 
-  const shouldCheckAutoExpand = useRef(true);
-
-  // State for expanded folders
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-
-  // Filter and Pagination State
+  const [viewMode, setViewModeState] = useState<ViewMode>(savedViewMode);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [autoExpand, setAutoExpand] = useState(true);
   const [rawFilterText, setRawFilterText] = useState("");
-  // Debounce the filter text - this prevents API calls on every keystroke
   const filterText = useDebounce(rawFilterText, 500);
-
   const [currentPage, setCurrentPage] = useState(0);
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
   const [pageSize, setPageSize] = useState(20);
 
-  // Reset expanded folders and pagination on navigation
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Reset on prefix change
-  useEffect(() => {
-    setExpandedFolders(new Set());
-    shouldCheckAutoExpand.current = true;
-    setRawFilterText("");
-    setCurrentPage(0);
-    setPageTokens([null]);
-  }, [prefix]);
+  const bucketKey = profileKey(profile, "objects", bucket);
+  const listing = (params: ListingParams) => ({
+    queryKey: [...bucketKey, params],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      api.get<ObjectList>(`s3/buckets/${bucket}/objects?${listingSearch(params)}`, { signal }),
+  });
 
-  // Trigger auto-expand check when switch is turned on
-  useEffect(() => {
-    if (viewMode === "tree") {
-      shouldCheckAutoExpand.current = true;
-    }
-  }, [viewMode]);
+  const root = useQuery({
+    ...listing({
+      prefix,
+      filter_text: filterText || undefined,
+      continuation_token: pageTokens[currentPage] ?? undefined,
+      max_keys: pageSize,
+      delimiter: viewMode === "flat" ? "" : "/",
+    }),
+    placeholderData: keepPreviousData,
+  });
+  const rootData = root.isPlaceholderData ? undefined : root.data;
 
-  // Save viewMode
-  useEffect(() => {
-    // Only persist, do not trigger fetch
-    localStorage.setItem("viewMode", viewMode);
-  }, [viewMode]);
+  const expandedFolders =
+    viewMode === "tree" && autoExpand && rootData
+      ? new Set([...expanded, ...rootData.CommonPrefixes.map((p) => p.Prefix)])
+      : expanded;
 
-  const [folderContent, setFolderContent] = useState<ObjectListBatch>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const childPrefixes = viewMode === "flat" ? [] : reachablePrefixes(prefix, expandedFolders);
+  const children = useQueries({ queries: childPrefixes.map((p) => listing({ prefix: p })) });
 
-  // Use a ref to track if we've already started a fetch for a specific state
-  // preventing double-firing in rapid succession if not needed.
-  // Ideally, useAbortedEffect or similar, but here we just cancel logic.
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const lastRequestKey = useRef<string>("");
+  const listings = new Map<string, ObjectList>();
+  childPrefixes.forEach((p, i) => {
+    const data = children[i]?.data;
+    if (data) listings.set(p, data);
+  });
+  if (root.data) listings.set(prefix, root.data);
 
-  const fetchData = useCallback(
-    async (force: boolean = false) => {
-      if (!bucket) return;
+  const nextToken = rootData?.NextContinuationToken;
+  const knownTokens =
+    nextToken && pageTokens[currentPage + 1] !== nextToken
+      ? pageTokens.toSpliced(currentPage + 1, 1, nextToken)
+      : pageTokens;
 
-      const getParent = (p: string) => {
-        const trimmed = p.endsWith("/") ? p.slice(0, -1) : p;
-        const lastSlash = trimmed.lastIndexOf("/");
-        if (lastSlash === -1) return "";
-        return `${trimmed.slice(0, lastSlash)}/`;
-      };
-
-      // 1. Identify reachable prefixes
-      // A prefix is "reachable" if all its ancestors (up to current viewing prefix) are expanded.
-      // Always include the current prefix (root of view).
-      const prefixesToFetch = new Set<string>();
-      prefixesToFetch.add(prefix);
-
-      const isReachable = (p: string) => {
-        if (p === prefix) return true;
-
-        let current = p;
-        // Walk upwards
-        while (current !== prefix && current.length > prefix.length) {
-          const parent = getParent(current);
-          // If we hit the viewing prefix, checking is done and successful
-          if (parent === prefix) return true;
-
-          if (current === "" && prefix !== "") return false;
-
-          if (!expandedFolders.has(parent)) return false;
-
-          current = parent;
-        }
-        return true;
-      };
-
-      if (viewMode !== "flat") {
-        expandedFolders.forEach((p) => {
-          if (p !== prefix && p.startsWith(prefix)) {
-            if (isReachable(p)) {
-              prefixesToFetch.add(p);
-            }
-          }
-        });
-      }
-
-      const requests: PrefixParams[] = Array.from(prefixesToFetch).map((p) => {
-        if (p === prefix) {
-          return {
-            prefix: p,
-            filter_text: filterText || null,
-            continuation_token: pageTokens[currentPage] || null,
-            max_keys: pageSize,
-            delimiter: viewMode === "flat" ? "" : "/",
-          };
-        }
-        return { prefix: p };
-      });
-
-      const requestKey = JSON.stringify({ profile, bucket, requests });
-      // If request identical to last one and not forced, skip.
-      // However, if we are waiting for auto-expand check (and autoExpand is ON),
-      // we must proceed even if request looks same (though usually auto-expand adds prefixes so it wouldn't match).
-      // The main protection here is to stop loops when autoExpand logic is settling or off.
-      if (!force && requestKey === lastRequestKey.current && !(viewMode === "tree" && shouldCheckAutoExpand.current)) {
-        return;
-      }
-
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      setLoading(true);
-
-      try {
-        lastRequestKey.current = requestKey;
-
-        // Batch requests logic
-        const BATCH_SIZE = 20;
-        const results: ObjectListBatch = {};
-        const requestChunks: PrefixParams[][] = [];
-
-        for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-          requestChunks.push(requests.slice(i, i + BATCH_SIZE));
-        }
-
-        await Promise.all(
-          requestChunks.map(async (chunk) => {
-            if (abortController.signal.aborted) return;
-            const chunkResult = await api.post<ObjectListBatch>(
-              `s3/buckets/${bucket}/objects/batch`,
-              {
-                requests: chunk,
-              } satisfies ObjectListBatchRequest,
-              { signal: abortController.signal },
-            );
-            Object.assign(results, chunkResult);
-          }),
-        );
-
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        const rootData = results[prefix];
-        if (!rootData) {
-          throw new Error("Failed to load root folder");
-        }
-
-        // Update tokens if we moved to a new page or first load
-        if (rootData.NextContinuationToken) {
-          const nextToken = rootData.NextContinuationToken;
-          setPageTokens((prev) => {
-            if (prev[currentPage + 1] === nextToken) {
-              return prev;
-            }
-            const newTokens = [...prev];
-            // Ensure we don't duplicate or overwrite wrongly if things raced, but simplified:
-            // We always store the next token at currentPage + 1
-            newTokens[currentPage + 1] = nextToken;
-            return newTokens;
-          });
-        }
-
-        // Handle Auto-Expand logic:
-        if (viewMode === "tree" && shouldCheckAutoExpand.current) {
-          const foldersToExpand = rootData.CommonPrefixes.map((p) => p.Prefix);
-          if (foldersToExpand.length > 0) {
-            const missing = foldersToExpand.filter((p) => !expandedFolders.has(p));
-            if (missing.length > 0) {
-              const nextExpanded = new Set(expandedFolders);
-              missing.forEach((p) => {
-                nextExpanded.add(p);
-              });
-              // We set the folders to expand, this will trigger another fetch via effect
-              // We set check to false to stop loop in next fetch
-              shouldCheckAutoExpand.current = false;
-              setExpandedFolders(nextExpanded);
-
-              // We ALSO set the content we have now, so we don't just show loading
-              setFolderContent((prev) => ({ ...prev, ...results }));
-              return;
-            }
-          }
-          // If we reached here, either no folders to expand, or all are expanded.
-          // We can turn off the check.
-          shouldCheckAutoExpand.current = false;
-        }
-
-        setFolderContent(results);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        // Also ignore if we aborted manually
-        if (abortController.signal.aborted) return;
-
-        setError(getErrorMessage(err));
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    },
-    [api, profile, bucket, prefix, expandedFolders, viewMode, filterText, currentPage, pageTokens, pageSize],
-  );
-
-  // Re-fetch when bucket, prefix or expandedFolders changes
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const items = useMemo(() => {
-    if (viewMode === "flat") {
-      // In flat mode, we only have the root content (prefix)
-      // And it contains all objects recursively (no CommonPrefixes if API works as expected with delimiter='')
-      // Wait, if delimiter is empty, S3 return NO CommonPrefixes (unless some objects have / in them but it's treated as part of key)
-      const content = folderContent[prefix];
-      if (!content) return [];
-
-      return content.Objects.map((o) => {
-        const fileName = o.Key; // Use full key
-        return {
-          key: o.Key,
-          type: "file",
-          name: fileName,
-          depth: 0,
-          size: o.Size,
-          lastModified: o.LastModified ?? undefined,
-          etag: o.ETag,
-        } as TableItem;
-      });
-    }
-
-    const flatten = (currentPrefix: string, depth: number): TableItem[] => {
-      const content = folderContent[currentPrefix];
-      if (!content) return [];
-
-      const result: TableItem[] = [];
-
-      // CommonPrefixes (Folders)
-      content.CommonPrefixes.forEach((p) => {
-        const folderName = p.Prefix.split("/").filter(Boolean).pop() || "";
-        const isExpanded = expandedFolders.has(p.Prefix);
-        result.push({
-          key: p.Prefix,
-          type: "folder",
-          name: folderName,
-          depth,
-          isExpanded,
-        });
-
-        if (isExpanded) {
-          result.push(...flatten(p.Prefix, depth + 1));
-        }
-      });
-
-      // Objects (Files)
-      content.Objects.forEach((o) => {
-        const fileName = o.Key.split("/").pop() || o.Key;
-        result.push({
-          key: o.Key,
-          type: "file",
-          name: fileName,
-          depth,
-          size: o.Size,
-          lastModified: o.LastModified ?? undefined,
-          etag: o.ETag,
-        });
-      });
-
-      return result;
-    };
-
-    return flatten(prefix, 0);
-  }, [folderContent, expandedFolders, prefix, viewMode]);
-
-  const handleToggleFolder = (folderPrefix: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderPrefix)) {
-        next.delete(folderPrefix);
-      } else {
-        next.add(folderPrefix);
-      }
-      return next;
-    });
-  };
-
-  const handleFilterChange = (val: string) => {
-    setRawFilterText(val);
-    setCurrentPage(0);
-    setPageTokens([null]);
-    setExpandedFolders(new Set());
-    if (viewMode === "tree") {
-      shouldCheckAutoExpand.current = true;
-    }
-  };
-
-  const handlePageChange = (p: number) => {
-    setCurrentPage(p);
-    setExpandedFolders(new Set());
-    if (viewMode === "tree") {
-      shouldCheckAutoExpand.current = true;
-    }
-  };
-
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(0);
-    setPageTokens([null]);
-    setExpandedFolders(new Set());
-    if (viewMode === "tree") {
-      shouldCheckAutoExpand.current = true;
-    }
+  const resetTree = () => {
+    setExpanded(new Set());
+    setAutoExpand(true);
   };
 
   return {
-    items,
-    loading,
-    error,
+    items: buildItems(prefix, viewMode, listings, expandedFolders),
+    loading: root.isFetching || children.some((q) => q.isFetching),
+    error: root.error ? getErrorMessage(root.error) : null,
     viewMode,
-    setViewMode,
-    refresh: () => fetchData(true),
-    toggleFolder: handleToggleFolder,
+    setViewMode: (mode: ViewMode) => {
+      localStorage.setItem("viewMode", mode);
+      setViewModeState(mode);
+      if (mode === "tree") setAutoExpand(true);
+    },
+    refresh: () => queryClient.invalidateQueries({ queryKey: bucketKey }),
+    toggleFolder: (folder: string) => {
+      const next = new Set(expandedFolders);
+      if (next.has(folder)) next.delete(folder);
+      else next.add(folder);
+      setExpanded(next);
+      setAutoExpand(false);
+    },
     filterText: rawFilterText,
-    setFilterText: handleFilterChange,
+    setFilterText: (text: string) => {
+      setRawFilterText(text);
+      setCurrentPage(0);
+      setPageTokens([null]);
+      resetTree();
+    },
     currentPage,
-    setCurrentPage: handlePageChange,
-    pageTokens, // To check if next page is available
+    setCurrentPage: (page: number) => {
+      setPageTokens(knownTokens);
+      setCurrentPage(page);
+      resetTree();
+    },
+    pageTokens: knownTokens,
     pageSize,
-    setPageSize: handlePageSizeChange,
+    setPageSize: (size: number) => {
+      setPageSize(size);
+      setCurrentPage(0);
+      setPageTokens([null]);
+      resetTree();
+    },
   };
 }
