@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getDualPreviewKind, getLanguageFromFilename } from "@/lib/file-utils";
 
@@ -32,11 +32,9 @@ interface FilePreviewDialogProps {
 
 export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreviewDialogProps) {
   // Show a spinner for image/PDF previews until the media finishes loading.
-  const [mediaLoaded, setMediaLoaded] = useState(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the spinner whenever the previewed file changes
-  useEffect(() => {
-    setMediaLoaded(false);
-  }, [file?.key]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const mediaLoaded = !!file && loadedKey === file.key;
+  const markLoaded = () => setLoadedKey(file?.key ?? null);
 
   const showSpinner = !!file && (file.isImage || file.isPdf) && !mediaLoaded;
   const dualKind = file ? getDualPreviewKind(file.key) : null;
@@ -60,16 +58,11 @@ export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreview
                 src={file.content}
                 alt={file.key}
                 className="max-w-full max-h-full object-contain"
-                onLoad={() => setMediaLoaded(true)}
-                onError={() => setMediaLoaded(true)}
+                onLoad={markLoaded}
+                onError={markLoaded}
               />
             ) : file.isPdf ? (
-              <iframe
-                src={file.content}
-                title={file.key}
-                className="w-full h-full border-0"
-                onLoad={() => setMediaLoaded(true)}
-              />
+              <iframe src={file.content} title={file.key} className="w-full h-full border-0" onLoad={markLoaded} />
             ) : file.isDocx ? (
               <Suspense fallback={spinner}>
                 <DocxViewer url={file.content} />

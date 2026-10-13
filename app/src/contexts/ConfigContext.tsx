@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, use, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/config";
 import type { AppConfig } from "@/types/config";
@@ -43,9 +43,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  return <ConfigContext.Provider value={{ config, isLoading, error }}>{children}</ConfigContext.Provider>;
+  return <ConfigContext value={{ config, isLoading, error }}>{children}</ConfigContext>;
 }
 
 export function useConfig() {
-  return useContext(ConfigContext);
+  return use(ConfigContext);
 }
