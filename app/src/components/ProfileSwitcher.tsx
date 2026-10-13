@@ -1,7 +1,7 @@
 import type { Identity, ProfileSource, PublicProfile } from "@api/schema/config";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useConfig } from "@/contexts/ConfigContext";
+import { useConfig } from "@/hooks/useConfig";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 
 const GROUP_LABELS: Record<ProfileSource, string> = {
@@ -37,11 +37,11 @@ function IdentityLine({ profile }: { profile: string }) {
 }
 
 export function ProfileSwitcher() {
-  const { config } = useConfig();
+  const config = useConfig();
   const active = useProfileId();
   const navigate = useNavigate();
 
-  if (!config || config.profiles.length < 2) return null;
+  if (config.profiles.length < 2) return null;
 
   const groups = groupBySource(config.profiles);
 

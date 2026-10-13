@@ -1,14 +1,14 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { ArrowUp, Database, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useConfig } from "@/contexts/ConfigContext";
+import { useConfig } from "@/hooks/useConfig";
 import { useProfileId } from "@/hooks/useProfileApi";
 import { activeProfile } from "@/types/config";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { Button } from "./ui/button";
 
 export function Layout() {
-  const { config, isLoading } = useConfig();
+  const config = useConfig();
   const profile = useProfileId();
   const services = activeProfile(config, profile);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -29,10 +29,6 @@ export function Layout() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
-  }
 
   return (
     <div className="min-h-screen flex flex-col relative">

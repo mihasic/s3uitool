@@ -1,3 +1,4 @@
+import type { AppConfig } from "@api/schema/config";
 import { API_BASE_URL } from "./config";
 
 export class ApiError extends Error {
@@ -54,6 +55,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}, timeoutMs
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export function getConfig(): Promise<AppConfig> {
+  return request<AppConfig>("/config");
 }
 
 export interface ProfileApi {
