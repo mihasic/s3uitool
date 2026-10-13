@@ -1,7 +1,7 @@
 {
   "name": "s3uitool",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "typescript": "^7.0.2"

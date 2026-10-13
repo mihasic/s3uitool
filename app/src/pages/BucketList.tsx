@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Database, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,8 @@ export function BucketList() {
   const profile = useProfileId();
   const [filterText, setFilterText] = useState("");
 
-  const filtered = useMemo(() => {
-    const needle = filterText.trim().toLowerCase();
-    if (!needle) return buckets;
-    return buckets.filter((bucket) => bucket.Name.toLowerCase().includes(needle));
-  }, [buckets, filterText]);
+  const needle = filterText.trim().toLowerCase();
+  const filtered = needle ? buckets.filter((bucket) => bucket.Name.toLowerCase().includes(needle)) : buckets;
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: profileKey(profile, "buckets") });

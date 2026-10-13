@@ -1,5 +1,4 @@
 import { marked } from "marked";
-import { useMemo } from "react";
 import type { DualPreviewKind } from "@/lib/file-utils";
 
 interface RenderedPreviewProps {
@@ -44,11 +43,12 @@ const MARKDOWN_STYLES = `<style>
 </style>`;
 
 export function RenderedPreview({ kind, content, title }: RenderedPreviewProps) {
-  const srcDoc = useMemo(() => {
-    if (kind === "html") return content;
-    if (kind === "svg") return `${DOCUMENT_HEAD}${SVG_STYLES}${content}`;
-    return `${DOCUMENT_HEAD}${MARKDOWN_STYLES}${marked(content, { async: false, gfm: true })}`;
-  }, [kind, content]);
+  const srcDoc =
+    kind === "html"
+      ? content
+      : kind === "svg"
+        ? `${DOCUMENT_HEAD}${SVG_STYLES}${content}`
+        : `${DOCUMENT_HEAD}${MARKDOWN_STYLES}${marked(content, { async: false, gfm: true })}`;
 
   return (
     <iframe title={`${title} (rendered)`} sandbox="" srcDoc={srcDoc} className="h-full w-full border-0 bg-white" />

@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,7 +39,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ConfirmContext.Provider value={confirm}>
+    <ConfirmContext value={confirm}>
       {children}
       <Dialog open={options !== null} onOpenChange={(open) => !open && settle(false)}>
         <DialogContent
@@ -60,12 +60,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </ConfirmContext.Provider>
+    </ConfirmContext>
   );
 }
 
 export function useConfirm(): ConfirmFn {
-  const ctx = useContext(ConfirmContext);
+  const ctx = use(ConfirmContext);
   if (!ctx) throw new Error("useConfirm must be used within a ConfirmProvider");
   return ctx;
 }

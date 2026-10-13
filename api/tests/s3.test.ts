@@ -83,7 +83,7 @@ describe("s3", () => {
     // A missing key maps to 404 via the central AWS error handler, not 500.
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/does-not-exist.txt`);
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "Not found" });
+    expect(await res.json()).toEqual({ error: "Object not found" });
   });
 
   test("returns 404 for a missing bucket", async () => {
@@ -241,6 +241,15 @@ describe("s3", () => {
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/gone.txt`, { method: "DELETE" });
     expect(await res.json()).toEqual({ message: "Object deleted successfully" });
     expect((await app.request(`/api/s3/buckets/${BUCKET}/objects/gone.txt`)).status).toBe(404);
+  });
+
+  test("rejects delete-prefix without a prefix", async () => {
+    const res = await app.request(`/api/s3/buckets/${BUCKET}/delete-prefix`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
   });
 
   test("deletes a whole prefix", async () => {

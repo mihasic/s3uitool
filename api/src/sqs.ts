@@ -9,10 +9,9 @@ import {
   type SQSClient,
 } from "@aws-sdk/client-sqs";
 import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getSqsClient } from "./aws";
-import type { AppEnv } from "./context";
+import { type AppEnv, requireService } from "./context";
 import { nullable, respondWith, stringMap } from "./model";
 
 const queueModel = z.object({
@@ -59,12 +58,7 @@ const messageModel = z.object({
 
 export const sqsRoutes = new Hono<AppEnv>();
 
-sqsRoutes.use("*", async (c, next) => {
-  const profile = c.get("profile");
-  if (!profile.sqs) throw new HTTPException(404, { message: `SQS is not enabled for profile "${profile.id}"` });
-  c.set("sqs", getSqsClient(profile));
-  await next();
-});
+sqsRoutes.use("*", requireService("sqs", getSqsClient));
 
 async function queueUrl(sqs: SQSClient, name: string): Promise<string> {
   const response = await sqs.send(new GetQueueUrlCommand({ QueueName: name }));

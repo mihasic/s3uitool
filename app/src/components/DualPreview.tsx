@@ -1,10 +1,11 @@
-import { Code2, Eye, Save } from "lucide-react";
-import { useState } from "react";
-import { FileViewer } from "@/components/FileViewer";
+import { Code2, Eye, Loader2, Save } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 import { RenderedPreview } from "@/components/RenderedPreview";
 import { Button } from "@/components/ui/button";
 import type { DualPreviewKind } from "@/lib/file-utils";
 import { getLanguageFromFilename } from "@/lib/file-utils";
+
+const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
 
 interface DualPreviewProps {
   fileKey: string;
@@ -42,13 +43,21 @@ export function DualPreview({ fileKey, kind, content, onSave }: DualPreviewProps
 
   if (mode === "code") {
     return (
-      <FileViewer
-        content={value}
-        language={getLanguageFromFilename(fileKey)}
-        onSave={onSave}
-        onChange={setValue}
-        toolbarLeading={<ModeToggle mode={mode} onChange={setMode} />}
-      />
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        }
+      >
+        <FileViewer
+          content={value}
+          language={getLanguageFromFilename(fileKey)}
+          onSave={onSave}
+          onChange={setValue}
+          toolbarLeading={<ModeToggle mode={mode} onChange={setMode} />}
+        />
+      </Suspense>
     );
   }
 

@@ -360,7 +360,6 @@ export function useObjectBrowser(bucket: string | undefined, prefix: string) {
     currentPage,
     setCurrentPage: handlePageChange,
     pageTokens, // To check if next page is available
-    isTruncated: folderContent[prefix]?.IsTruncated,
     pageSize,
     setPageSize: handlePageSizeChange,
   };

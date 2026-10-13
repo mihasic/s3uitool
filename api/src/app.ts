@@ -23,9 +23,8 @@ app.onError(onError);
 
 /** `id` is undefined on the unprefixed legacy routes, which stay bound to the default. */
 async function withProfile(c: Context<AppEnv>, next: Next, id?: string): Promise<void> {
-  const registry = await getRegistry();
-  const wanted = id ? decodeURIComponent(id) : registry.defaultId;
-  const profile = registry.profiles.find((p) => p.id === wanted);
+  const wanted = id ? decodeURIComponent(id) : (await getRegistry()).defaultId;
+  const profile = await findProfile(wanted);
   if (!profile) throw new HTTPException(404, { message: `Unknown profile "${wanted}"` });
   c.set("profile", profile);
   await next();
@@ -48,12 +47,8 @@ app.get("/api/config", async (c) => {
   return c.json({ defaultProfile: defaultId, profiles: profiles.map(toPublicProfile) });
 });
 
-app.get("/api/:profile/identity", async (c) => {
-  const id = decodeURIComponent(c.req.param("profile"));
-  const profile = await findProfile(id);
-  if (!profile) throw new HTTPException(404, { message: `Unknown profile "${id}"` });
-  return c.json(await callerIdentity(profile));
-});
+app.use("/api/:profile/identity", (c, next) => withProfile(c, next, c.req.param("profile")));
+app.get("/api/:profile/identity", async (c) => c.json(await callerIdentity(c.get("profile"))));
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
