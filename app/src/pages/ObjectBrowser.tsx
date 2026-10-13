@@ -1,4 +1,5 @@
 import type { CopyPrefixRequest, CopyRequest, DeletePrefixRequest, S3ObjectContent } from "@api/schema/s3";
+import { useMutation } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { toast } from "sonner";
@@ -9,12 +10,20 @@ import { NewFileModal } from "@/components/NewFileModal";
 import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
 import { ObjectListTable } from "@/components/ObjectListTable";
 import { UploadModal } from "@/components/UploadModal";
+import { objectsKey } from "@/hooks/useApi";
 import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { useProfileApi } from "@/hooks/useProfileApi";
 import { reportError } from "@/lib/errors";
 import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
 const route = getRouteApi("/$profile/s3/$bucket");
+
+interface CopyMoveVariables {
+  action: "copy" | "move";
+  key: string;
+  isFolder: boolean;
+  destination: string;
+}
 
 export function ObjectBrowser() {
   const { profile, bucket } = route.useParams();
@@ -57,6 +66,60 @@ export function ObjectBrowser() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
   const confirm = useConfirm();
+
+  const invalidates = objectsKey(profile, bucket);
+  const putObject = (key: string, body: Blob) => {
+    const formData = new FormData();
+    formData.append("file", body);
+    return api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`, formData);
+  };
+
+  const deleteObject = useMutation({
+    mutationFn: (key: string) => api.delete(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`),
+    meta: { error: "Failed to delete file", success: "File deleted successfully", invalidates },
+  });
+
+  const deleteFolder = useMutation({
+    mutationFn: (folder: string) =>
+      api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folder } satisfies DeletePrefixRequest),
+    meta: { error: "Failed to delete folder", success: "Folder deleted successfully", invalidates },
+  });
+
+  const saveFile = useMutation({
+    mutationFn: ({ key, content }: { key: string; content: string }) =>
+      putObject(key, new Blob([content], { type: "text/plain" })),
+    meta: { error: "Failed to save file", success: "File saved successfully", invalidates },
+  });
+
+  const upload = useMutation({
+    mutationFn: ({ file, key }: { file: File; key: string }) => putObject(key, file),
+    meta: { error: "Failed to upload file", success: "File uploaded successfully", invalidates },
+  });
+
+  const copyMove = useMutation({
+    mutationFn: ({ action, key, isFolder, destination }: CopyMoveVariables) =>
+      isFolder
+        ? api.post("s3/copy-prefix", {
+            source_bucket: bucket,
+            source_prefix: key,
+            destination_bucket: bucket,
+            destination_prefix: destination.endsWith("/") ? destination : `${destination}/`,
+            move: action === "move",
+          } satisfies CopyPrefixRequest)
+        : api.post("s3/copy", {
+            source_bucket: bucket,
+            source_key: key,
+            destination_bucket: bucket,
+            destination_key: destination,
+            move: action === "move",
+          } satisfies CopyRequest),
+    meta: {
+      error: ({ action, isFolder }: CopyMoveVariables) => `Failed to ${action} ${isFolder ? "folder" : "file"}`,
+      success: ({ action, isFolder }: CopyMoveVariables) =>
+        `${isFolder ? "Folder" : "File"} ${action === "copy" ? "copied" : "moved"} successfully`,
+      invalidates,
+    },
+  });
 
   const activeIndex = Math.min(selectedIndex, items.length - 1);
   const activeItem = activeIndex >= 0 ? items[activeIndex] : undefined;
@@ -126,14 +189,7 @@ export function ObjectBrowser() {
       confirmText: "Delete",
       destructive: true,
     });
-    if (!ok) return;
-    try {
-      await api.delete(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`);
-      toast.success("File deleted successfully");
-      refresh();
-    } catch (err) {
-      reportError("Failed to delete file", err);
-    }
+    if (ok) deleteObject.mutate(key);
   };
 
   const handleDeleteFolder = async (folderPrefix: string) => {
@@ -144,14 +200,7 @@ export function ObjectBrowser() {
       confirmText: "Delete",
       destructive: true,
     });
-    if (!ok) return;
-    try {
-      await api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folderPrefix } satisfies DeletePrefixRequest);
-      toast.success("Folder deleted successfully");
-      refresh();
-    } catch (err) {
-      reportError("Failed to delete folder", err);
-    }
+    if (ok) deleteFolder.mutate(folderPrefix);
   };
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
@@ -199,37 +248,9 @@ export function ObjectBrowser() {
     });
   };
 
-  const handleSave = async (newContent: string) => {
-    if (!bucket || !selectedFile) return;
-    try {
-      const formData = new FormData();
-      const blob = new Blob([newContent], { type: "text/plain" });
-      formData.append("file", blob);
-
-      await api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(selectedFile.key)}`, formData);
-
-      toast.success("File saved successfully");
-      setSelectedFile(null);
-      refresh();
-    } catch (err) {
-      reportError("Failed to save file", err);
-    }
-  };
-
-  const handleUpload = async (file: File, key: string) => {
-    if (!bucket) return;
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      await api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`, formData);
-
-      toast.success("File uploaded successfully");
-      refresh();
-    } catch (err) {
-      reportError("Failed to upload file", err);
-      throw err; // Re-throw to let modal know it failed
-    }
+  const handleSave = (content: string) => {
+    if (!selectedFile) return;
+    saveFile.mutate({ key: selectedFile.key, content }, { onSuccess: () => setSelectedFile(null) });
   };
 
   const handleCopy = (key: string) => {
@@ -260,36 +281,8 @@ export function ObjectBrowser() {
     setCopyMoveModalOpen(true);
   };
 
-  const handleCopyMoveConfirm = async (destinationKey: string) => {
-    if (!bucket) return;
-    try {
-      if (copyMoveIsFolder) {
-        // Ensure destination folder ends with /
-        const dest = destinationKey.endsWith("/") ? destinationKey : `${destinationKey}/`;
-
-        await api.post("s3/copy-prefix", {
-          source_bucket: bucket,
-          source_prefix: copyMoveSourceKey,
-          destination_bucket: bucket,
-          destination_prefix: dest,
-          move: copyMoveAction === "move",
-        } satisfies CopyPrefixRequest);
-      } else {
-        await api.post("s3/copy", {
-          source_bucket: bucket,
-          source_key: copyMoveSourceKey,
-          destination_bucket: bucket,
-          destination_key: destinationKey,
-          move: copyMoveAction === "move",
-        } satisfies CopyRequest);
-      }
-
-      refresh();
-      const type = copyMoveIsFolder ? "Folder" : "File";
-      toast.success(`${type} ${copyMoveAction === "copy" ? "copied" : "moved"} successfully`);
-    } catch (err) {
-      reportError(`Failed to ${copyMoveAction} ${copyMoveIsFolder ? "folder" : "file"}`, err);
-    }
+  const handleCopyMoveConfirm = (destination: string) => {
+    copyMove.mutate({ action: copyMoveAction, key: copyMoveSourceKey, isFolder: copyMoveIsFolder, destination });
   };
 
   const handleDownload = (key: string) => {
@@ -371,7 +364,7 @@ export function ObjectBrowser() {
           setUploadModalOpen(false);
           setDroppedFile(null);
         }}
-        onUpload={handleUpload}
+        onUpload={(file, key) => upload.mutateAsync({ file, key })}
         currentPrefix={prefix}
         initialFile={droppedFile}
       />

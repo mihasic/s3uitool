@@ -27,7 +27,7 @@ interface FilePreviewDialogProps {
   file: SelectedFile | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string) => Promise<void>;
+  onSave: (content: string) => void;
 }
 
 export function FilePreviewDialog({ file, isOpen, onClose, onSave }: FilePreviewDialogProps) {

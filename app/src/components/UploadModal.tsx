@@ -17,7 +17,7 @@ import { validateObjectKey } from "@/lib/file-utils";
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (file: File, key: string) => Promise<void>;
+  onUpload: (file: File, key: string) => Promise<unknown>;
   currentPrefix: string;
   initialFile?: File | null;
 }

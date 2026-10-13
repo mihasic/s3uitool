@@ -1,8 +1,9 @@
 import type { ObjectList } from "@api/schema/s3";
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { objectsKey } from "@/hooks/useApi";
 import { useDebounce } from "@/hooks/useDebounce";
-import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
+import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
 import { buildItems, reachablePrefixes } from "@/lib/object-tree";
 import type { ViewMode } from "@/types/s3";
@@ -42,7 +43,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
   const [pageSize, setPageSize] = useState(20);
 
-  const bucketKey = profileKey(profile, "objects", bucket);
+  const bucketKey = objectsKey(profile, bucket);
   const listing = (params: ListingParams) => ({
     queryKey: [...bucketKey, params],
     queryFn: ({ signal }: { signal: AbortSignal }) =>

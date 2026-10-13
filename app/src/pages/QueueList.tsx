@@ -1,14 +1,13 @@
 import type { Queue } from "@api/schema/sqs";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useQueues } from "@/hooks/useApi";
-import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
-import { getErrorMessage, reportError } from "@/lib/errors";
+import { queuesKey, useQueues } from "@/hooks/useApi";
+import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
+import { getErrorMessage } from "@/lib/errors";
 
 function QueueCounts({ queue }: { queue: Queue }) {
   if (queue.Available === null) return <span className="text-muted-foreground">&mdash;</span>;
@@ -25,26 +24,15 @@ function QueueCounts({ queue }: { queue: Queue }) {
 }
 
 export function QueueList() {
-  const { data: queues = [], isLoading: loading, error } = useQueues();
-  const queryClient = useQueryClient();
+  const { data: queues = [], isLoading: loading, error, refetch } = useQueues();
   const confirm = useConfirm();
   const api = useProfileApi();
   const profile = useProfileId();
 
   const purgeQueueMutation = useMutation({
     mutationFn: (queueName: string) => api.post(`sqs/queues/${queueName}/purge`, {}),
-    onSuccess: () => {
-      toast.success("Queue purged successfully");
-      queryClient.invalidateQueries({ queryKey: profileKey(profile, "queues") });
-    },
-    onError: (err) => {
-      reportError("Failed to purge queue", err);
-    },
+    meta: { error: "Failed to purge queue", success: "Queue purged successfully", invalidates: queuesKey(profile) },
   });
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: profileKey(profile, "queues") });
-  };
 
   const handlePurge = async (queueName: string) => {
     const ok = await confirm({
@@ -63,7 +51,7 @@ export function QueueList() {
     <div className="p-6">
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">SQS Queues</h1>
-        <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh">
+        <Button variant="outline" size="icon" onClick={() => refetch()} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
