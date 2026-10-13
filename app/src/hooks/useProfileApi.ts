@@ -1,5 +1,4 @@
 import { useParams } from "@tanstack/react-router";
-import { useMemo } from "react";
 import { useConfig } from "@/hooks/useConfig";
 import { createApi, type ProfileApi } from "@/lib/api";
 import { activeProfile } from "@/types/config";
@@ -12,8 +11,7 @@ export function useProfileId(): string {
 }
 
 export function useProfileApi(): ProfileApi {
-  const profile = useProfileId();
-  return useMemo(() => createApi(profile), [profile]);
+  return createApi(useProfileId());
 }
 
 /** Query keys are profile-scoped so one account's cache never shows up under another. */

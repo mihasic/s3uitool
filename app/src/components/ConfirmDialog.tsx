@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, use, useCallback, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,12 +25,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [options, setOptions] = useState<ConfirmOptions | null>(null);
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
-  const confirm = useCallback<ConfirmFn>((opts) => {
+  const confirm: ConfirmFn = (opts) => {
     setOptions(opts);
     return new Promise<boolean>((resolve) => {
       resolverRef.current = resolve;
     });
-  }, []);
+  };
 
   const settle = (result: boolean) => {
     resolverRef.current?.(result);
