@@ -16,13 +16,11 @@ import { useProfileApi } from "@/hooks/useProfileApi";
 import { bucketPath, downloadPath, objectPath } from "@/lib/api";
 import { reportError } from "@/lib/errors";
 import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import type { CopyMoveTarget, PreviewFile } from "@/types/s3";
 
 const route = getRouteApi("/$profile/s3/$bucket");
 
-interface CopyMoveVariables {
-  action: "copy" | "move";
-  key: string;
-  isFolder: boolean;
+interface CopyMoveVariables extends CopyMoveTarget {
   destination: string;
 }
 
@@ -48,21 +46,10 @@ export function ObjectBrowser() {
     setPageSize,
   } = useObjectBrowser(bucket, prefix);
 
-  const [selectedFile, setSelectedFile] = useState<{
-    key: string;
-    content: string;
-    isImage?: boolean;
-    isPdf?: boolean;
-    isDocx?: boolean;
-  } | null>(null);
-
-  const [copyMoveModalOpen, setCopyMoveModalOpen] = useState(false);
-  const [copyMoveAction, setCopyMoveAction] = useState<"copy" | "move">("copy");
-  const [copyMoveSourceKey, setCopyMoveSourceKey] = useState("");
-  const [copyMoveIsFolder, setCopyMoveIsFolder] = useState(false);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
+  const [copyMoveTarget, setCopyMoveTarget] = useState<CopyMoveTarget | null>(null);
+  const [uploadDialog, setUploadDialog] = useState<{ file: File | null } | null>(null);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
-  const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
@@ -125,55 +112,23 @@ export function ObjectBrowser() {
   const activeIndex = Math.min(selectedIndex, items.length - 1);
   const activeItem = activeIndex >= 0 ? items[activeIndex] : undefined;
 
+  const showMedia = (key: string, kind: "image" | "pdf" | "docx") =>
+    setPreview({ kind, key, url: api.url(downloadPath(bucket, key, kind !== "docx")) });
+
   const handleView = async (key: string) => {
-    if (!bucket) return;
     const ext = fileExtension(key);
     const isDual = !!getDualPreviewKind(key);
 
-    if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) {
-      setSelectedFile({
-        key,
-        content: api.url(downloadPath(bucket, key, true)),
-        isImage: true,
-      });
-      return;
-    }
-
-    if (ext === "pdf") {
-      setSelectedFile({
-        key,
-        content: api.url(downloadPath(bucket, key, true)),
-        isImage: false,
-        isPdf: true,
-      });
-      return;
-    }
-
-    if (ext === "docx") {
-      setSelectedFile({
-        key,
-        content: api.url(downloadPath(bucket, key)),
-        isImage: false,
-        isPdf: false,
-        isDocx: true,
-      });
-      return;
-    }
+    if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) return showMedia(key, "image");
+    if (ext === "pdf") return showMedia(key, "pdf");
+    if (ext === "docx") return showMedia(key, "docx");
 
     try {
       const response = await api.get<S3ObjectContent>(objectPath(bucket, key));
-
       if ((!isDual || response.Content === null) && response.ContentType?.toLowerCase().startsWith("image/")) {
-        setSelectedFile({
-          key,
-          content: api.url(downloadPath(bucket, key, true)),
-          isImage: true,
-        });
-        return;
-      }
-
-      if (response.Content !== null) {
-        setSelectedFile({ key, content: response.Content, isImage: false });
+        showMedia(key, "image");
+      } else if (response.Content !== null) {
+        setPreview({ kind: "text", key, content: response.Content });
       } else {
         toast.error("Binary file or empty content");
       }
@@ -183,7 +138,6 @@ export function ObjectBrowser() {
   };
 
   const handleDelete = async (key: string) => {
-    if (!bucket) return;
     const ok = await confirm({
       title: "Delete file",
       description: `Are you sure you want to delete ${key}?`,
@@ -194,7 +148,6 @@ export function ObjectBrowser() {
   };
 
   const handleDeleteFolder = async (folderPrefix: string) => {
-    if (!bucket) return;
     const ok = await confirm({
       title: "Delete folder",
       description: `Delete folder ${folderPrefix} and all its contents?`,
@@ -205,7 +158,7 @@ export function ObjectBrowser() {
   };
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
-    if (selectedFile || copyMoveModalOpen || uploadModalOpen || newFileModalOpen) return;
+    if (preview || copyMoveTarget || uploadDialog || newFileModalOpen) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -241,64 +194,22 @@ export function ObjectBrowser() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const handleCreateFile = (key: string) => {
-    setSelectedFile({
-      key,
-      content: "{}",
-      isImage: false,
-    });
-  };
+  const handleCreateFile = (key: string) => setPreview({ kind: "text", key, content: "{}" });
 
   const handleSave = (content: string) => {
-    if (!selectedFile) return;
-    saveFile.mutate({ key: selectedFile.key, content }, { onSuccess: () => setSelectedFile(null) });
-  };
-
-  const handleCopy = (key: string) => {
-    setCopyMoveSourceKey(key);
-    setCopyMoveAction("copy");
-    setCopyMoveIsFolder(false);
-    setCopyMoveModalOpen(true);
-  };
-
-  const handleMove = (key: string) => {
-    setCopyMoveSourceKey(key);
-    setCopyMoveAction("move");
-    setCopyMoveIsFolder(false);
-    setCopyMoveModalOpen(true);
-  };
-
-  const handleCopyFolder = (prefix: string) => {
-    setCopyMoveSourceKey(prefix);
-    setCopyMoveAction("copy");
-    setCopyMoveIsFolder(true);
-    setCopyMoveModalOpen(true);
-  };
-
-  const handleMoveFolder = (prefix: string) => {
-    setCopyMoveSourceKey(prefix);
-    setCopyMoveAction("move");
-    setCopyMoveIsFolder(true);
-    setCopyMoveModalOpen(true);
-  };
-
-  const handleCopyMoveConfirm = (destination: string) => {
-    copyMove.mutate({ action: copyMoveAction, key: copyMoveSourceKey, isFolder: copyMoveIsFolder, destination });
+    if (!preview) return;
+    saveFile.mutate({ key: preview.key, content }, { onSuccess: () => setPreview(null) });
   };
 
   const handleDownload = (key: string) => {
-    if (!bucket) return;
-    // Direct download link
     window.open(api.url(downloadPath(bucket, key)), "_blank");
   };
 
   const handleDownloadFolder = (prefix: string) => {
-    if (!bucket) return;
     window.open(api.url(`${bucketPath(bucket)}/download-prefix?prefix=${encodeURIComponent(prefix)}`), "_blank");
   };
 
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
-  if (!bucket) return null;
 
   return (
     <div className="p-6">
@@ -306,10 +217,7 @@ export function ObjectBrowser() {
         bucket={bucket}
         prefix={prefix}
         onNewFile={() => setNewFileModalOpen(true)}
-        onUpload={() => {
-          setDroppedFile(null);
-          setUploadModalOpen(true);
-        }}
+        onUpload={() => setUploadDialog({ file: null })}
         onRefresh={refresh}
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -329,45 +237,29 @@ export function ObjectBrowser() {
         selectedIndex={activeIndex}
         onView={handleView}
         onDownload={handleDownload}
-        onCopy={handleCopy}
-        onMove={handleMove}
+        onCopyMove={setCopyMoveTarget}
         onDelete={handleDelete}
         onDeleteFolder={handleDeleteFolder}
-        onCopyFolder={handleCopyFolder}
-        onMoveFolder={handleMoveFolder}
         onDownloadFolder={handleDownloadFolder}
         onToggleFolder={toggleFolder}
-        onFileDrop={(file) => {
-          setDroppedFile(file);
-          setUploadModalOpen(true);
-        }}
+        onFileDrop={(file) => setUploadDialog({ file })}
         viewMode={viewMode}
       />
 
-      <FilePreviewDialog
-        file={selectedFile}
-        isOpen={!!selectedFile}
-        onClose={() => setSelectedFile(null)}
-        onSave={handleSave}
-      />
+      <FilePreviewDialog file={preview} onClose={() => setPreview(null)} onSave={handleSave} />
 
       <CopyMoveModal
-        isOpen={copyMoveModalOpen}
-        onClose={() => setCopyMoveModalOpen(false)}
-        onConfirm={handleCopyMoveConfirm}
-        sourceKey={copyMoveSourceKey}
-        action={copyMoveAction}
+        target={copyMoveTarget}
+        onClose={() => setCopyMoveTarget(null)}
+        onConfirm={(target, destination) => copyMove.mutate({ ...target, destination })}
       />
 
       <UploadModal
-        isOpen={uploadModalOpen}
-        onClose={() => {
-          setUploadModalOpen(false);
-          setDroppedFile(null);
-        }}
+        isOpen={uploadDialog !== null}
+        onClose={() => setUploadDialog(null)}
         onUpload={(file, key) => upload.mutateAsync({ file, key })}
         currentPrefix={prefix}
-        initialFile={droppedFile}
+        initialFile={uploadDialog?.file}
       />
 
       <NewFileModal

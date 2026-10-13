@@ -10,3 +10,13 @@ export interface TableItem {
 }
 
 export type ViewMode = "folder" | "tree" | "flat";
+
+export interface CopyMoveTarget {
+  action: "copy" | "move";
+  key: string;
+  isFolder: boolean;
+}
+
+export type PreviewFile =
+  | { kind: "image" | "pdf" | "docx"; key: string; url: string }
+  | { kind: "text"; key: string; content: string };

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProfileId } from "@/hooks/useProfileApi";
 import { fileExtension, IMAGE_EXTENSIONS, TEXTUAL_EXTENSIONS } from "@/lib/file-utils";
-import type { TableItem, ViewMode } from "@/types/s3";
+import type { CopyMoveTarget, TableItem, ViewMode } from "@/types/s3";
 
 interface ObjectListTableProps {
   items: TableItem[];
@@ -14,12 +14,9 @@ interface ObjectListTableProps {
   selectedIndex: number;
   onView: (key: string) => void;
   onDownload: (key: string) => void;
-  onCopy: (key: string) => void;
-  onMove: (key: string) => void;
+  onCopyMove: (target: CopyMoveTarget) => void;
   onDelete: (key: string) => void;
   onDeleteFolder?: (prefix: string) => void;
-  onCopyFolder?: (prefix: string) => void;
-  onMoveFolder?: (prefix: string) => void;
   onDownloadFolder?: (prefix: string) => void;
   onToggleFolder: (prefix: string) => void;
   onFileDrop: (file: File) => void;
@@ -33,12 +30,9 @@ export function ObjectListTable({
   selectedIndex,
   onView,
   onDownload,
-  onCopy,
-  onMove,
+  onCopyMove,
   onDelete,
   onDeleteFolder,
-  onCopyFolder,
-  onMoveFolder,
   onDownloadFolder,
   onToggleFolder,
   onFileDrop,
@@ -176,16 +170,22 @@ export function ObjectListTable({
                           <Download className="h-4 w-4" />
                         </Button>
                       )}
-                      {onCopyFolder && (
-                        <Button variant="ghost" size="icon" onClick={() => onCopyFolder(item.key)} title="Copy Folder">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onMoveFolder && (
-                        <Button variant="ghost" size="icon" onClick={() => onMoveFolder(item.key)} title="Move Folder">
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onCopyMove({ action: "copy", key: item.key, isFolder: true })}
+                        title="Copy Folder"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onCopyMove({ action: "move", key: item.key, isFolder: true })}
+                        title="Move Folder"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
                       {onDeleteFolder && (
                         <Button
                           variant="ghost"
@@ -276,10 +276,22 @@ export function ObjectListTable({
                     <Button variant="ghost" size="icon" onClick={() => onDownload(item.key)} aria-label="Download">
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onCopy(item.key)} title="Copy" aria-label="Copy">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onCopyMove({ action: "copy", key: item.key, isFolder: false })}
+                      title="Copy"
+                      aria-label="Copy"
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onMove(item.key)} title="Move" aria-label="Move">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onCopyMove({ action: "move", key: item.key, isFolder: false })}
+                      title="Move"
+                      aria-label="Move"
+                    >
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                     <Button

@@ -9,51 +9,47 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { CopyMoveTarget } from "@/types/s3";
 
-interface CopyMoveFormProps {
+interface CopyMoveModalProps {
+  target: CopyMoveTarget | null;
   onClose: () => void;
-  onConfirm: (destinationKey: string) => void;
-  sourceKey: string;
-  action: "copy" | "move";
+  onConfirm: (target: CopyMoveTarget, destination: string) => void;
 }
 
-interface CopyMoveModalProps extends CopyMoveFormProps {
-  isOpen: boolean;
-}
-
-export function CopyMoveModal({ isOpen, ...props }: CopyMoveModalProps) {
-  const { action, sourceKey } = props;
+export function CopyMoveModal({ target, onClose, onConfirm }: CopyMoveModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && props.onClose()}>
+    <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
-          <DialogTitle>{action === "copy" ? "Copy Object" : "Move Object"}</DialogTitle>
-          <DialogDescription>
-            {action === "copy" ? "Copy" : "Move"} "{sourceKey}" to a new location.
-          </DialogDescription>
-        </DialogHeader>
-        <CopyMoveForm {...props} />
+        {target && <CopyMoveForm target={target} onClose={onClose} onConfirm={onConfirm} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function CopyMoveForm({ onClose, onConfirm, sourceKey, action }: CopyMoveFormProps) {
-  const [destinationKey, setDestinationKey] = useState(sourceKey);
+function CopyMoveForm({ target, onClose, onConfirm }: CopyMoveModalProps & { target: CopyMoveTarget }) {
+  const [destination, setDestination] = useState(target.key);
+  const verb = target.action === "copy" ? "Copy" : "Move";
 
   const handleConfirm = () => {
-    onConfirm(destinationKey);
+    onConfirm(target, destination);
     onClose();
   };
 
   return (
     <>
+      <DialogHeader>
+        <DialogTitle>{verb} Object</DialogTitle>
+        <DialogDescription>
+          {verb} "{target.key}" to a new location.
+        </DialogDescription>
+      </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="grid grid-cols-4 items-center gap-4">
           <Input
             id="destination"
-            value={destinationKey}
-            onChange={(e) => setDestinationKey(e.target.value)}
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
             className="col-span-4"
           />
         </div>
@@ -62,7 +58,7 @@ function CopyMoveForm({ onClose, onConfirm, sourceKey, action }: CopyMoveFormPro
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleConfirm}>{action === "copy" ? "Copy" : "Move"}</Button>
+        <Button onClick={handleConfirm}>{verb}</Button>
       </DialogFooter>
     </>
   );
