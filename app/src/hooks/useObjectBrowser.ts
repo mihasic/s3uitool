@@ -4,6 +4,7 @@ import { useState } from "react";
 import { objectsKey } from "@/hooks/useApi";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
+import { bucketPath } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { buildItems, reachablePrefixes } from "@/lib/object-tree";
 import type { ViewMode } from "@/types/s3";
@@ -47,7 +48,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
   const listing = (params: ListingParams) => ({
     queryKey: [...bucketKey, params],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
-      api.get<ObjectList>(`s3/buckets/${bucket}/objects?${listingSearch(params)}`, { signal }),
+      api.get<ObjectList>(`${bucketPath(bucket)}/objects?${listingSearch(params)}`, { signal }),
   });
 
   const root = useQuery({

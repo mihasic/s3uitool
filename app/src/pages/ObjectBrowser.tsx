@@ -13,6 +13,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { objectsKey } from "@/hooks/useApi";
 import { useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { useProfileApi } from "@/hooks/useProfileApi";
+import { bucketPath, downloadPath, objectPath } from "@/lib/api";
 import { reportError } from "@/lib/errors";
 import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 
@@ -71,17 +72,17 @@ export function ObjectBrowser() {
   const putObject = (key: string, body: Blob) => {
     const formData = new FormData();
     formData.append("file", body);
-    return api.upload(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`, formData);
+    return api.upload(objectPath(bucket, key), formData);
   };
 
   const deleteObject = useMutation({
-    mutationFn: (key: string) => api.delete(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`),
+    mutationFn: (key: string) => api.delete(objectPath(bucket, key)),
     meta: { error: "Failed to delete file", success: "File deleted successfully", invalidates },
   });
 
   const deleteFolder = useMutation({
     mutationFn: (folder: string) =>
-      api.post(`s3/buckets/${bucket}/delete-prefix`, { prefix: folder } satisfies DeletePrefixRequest),
+      api.post(`${bucketPath(bucket)}/delete-prefix`, { prefix: folder } satisfies DeletePrefixRequest),
     meta: { error: "Failed to delete folder", success: "Folder deleted successfully", invalidates },
   });
 
@@ -132,7 +133,7 @@ export function ObjectBrowser() {
     if (!isDual && ext && IMAGE_EXTENSIONS.has(ext)) {
       setSelectedFile({
         key,
-        content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
+        content: api.url(downloadPath(bucket, key, true)),
         isImage: true,
       });
       return;
@@ -141,7 +142,7 @@ export function ObjectBrowser() {
     if (ext === "pdf") {
       setSelectedFile({
         key,
-        content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
+        content: api.url(downloadPath(bucket, key, true)),
         isImage: false,
         isPdf: true,
       });
@@ -151,7 +152,7 @@ export function ObjectBrowser() {
     if (ext === "docx") {
       setSelectedFile({
         key,
-        content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`),
+        content: api.url(downloadPath(bucket, key)),
         isImage: false,
         isPdf: false,
         isDocx: true,
@@ -160,12 +161,12 @@ export function ObjectBrowser() {
     }
 
     try {
-      const response = await api.get<S3ObjectContent>(`s3/buckets/${bucket}/objects/${encodeURIComponent(key)}`);
+      const response = await api.get<S3ObjectContent>(objectPath(bucket, key));
 
       if ((!isDual || response.Content === null) && response.ContentType?.toLowerCase().startsWith("image/")) {
         setSelectedFile({
           key,
-          content: api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}?inline=true`),
+          content: api.url(downloadPath(bucket, key, true)),
           isImage: true,
         });
         return;
@@ -288,12 +289,12 @@ export function ObjectBrowser() {
   const handleDownload = (key: string) => {
     if (!bucket) return;
     // Direct download link
-    window.open(api.url(`/s3/buckets/${bucket}/download/${encodeURIComponent(key)}`), "_blank");
+    window.open(api.url(downloadPath(bucket, key)), "_blank");
   };
 
   const handleDownloadFolder = (prefix: string) => {
     if (!bucket) return;
-    window.open(api.url(`/s3/buckets/${bucket}/download-prefix?prefix=${encodeURIComponent(prefix)}`), "_blank");
+    window.open(api.url(`${bucketPath(bucket)}/download-prefix?prefix=${encodeURIComponent(prefix)}`), "_blank");
   };
 
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;

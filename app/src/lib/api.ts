@@ -61,6 +61,18 @@ export function getConfig(): Promise<AppConfig> {
   return request<AppConfig>("/config");
 }
 
+export function bucketPath(bucket: string): string {
+  return `s3/buckets/${encodeURIComponent(bucket)}`;
+}
+
+export function objectPath(bucket: string, key: string): string {
+  return `${bucketPath(bucket)}/objects/${encodeURIComponent(key)}`;
+}
+
+export function downloadPath(bucket: string, key: string, inline = false): string {
+  return `${bucketPath(bucket)}/download/${encodeURIComponent(key)}${inline ? "?inline=true" : ""}`;
+}
+
 export interface ProfileApi {
   get: <T>(endpoint: string, options?: RequestInit) => Promise<T>;
   post: <T>(endpoint: string, body: unknown, options?: RequestInit) => Promise<T>;
