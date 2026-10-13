@@ -250,6 +250,37 @@ describe("s3", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain("prefix");
+  });
+
+  test("rejects malformed JSON with a 400", async () => {
+    const res = await app.request("/api/s3/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not json",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Malformed JSON in request body" });
+  });
+
+  test("rejects a copy with missing fields", async () => {
+    const res = await app.request("/api/s3/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_bucket: BUCKET }),
+    });
+    expect(res.status).toBe(400);
+    const { error } = (await res.json()) as { error: string };
+    expect(error).toContain("source_key");
+    expect(error).toContain("destination_key");
+  });
+
+  test("rejects an upload without a file field", async () => {
+    const form = new FormData();
+    form.append("other", "x");
+    const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/nofile.txt`, { method: "PUT", body: form });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Expected a multipart body with a `file` field" });
   });
 
   test("deletes a whole prefix", async () => {

@@ -15,49 +15,27 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getS3Client } from "./aws";
 import { type AppEnv, requireService } from "./context";
-import { dateTime, nullable, respondWith, stringMap } from "./model";
+import { respondWith } from "./model";
+import {
+  bucketModel,
+  copyPrefixRequestModel,
+  copyRequestModel,
+  deletePrefixRequestModel,
+  downloadPrefixQueryModel,
+  objectListBatchModel,
+  objectListBatchRequestModel,
+  objectListModel,
+  objectListQueryModel,
+  type PrefixParams,
+  s3ObjectContentModel,
+  type s3ObjectModel,
+} from "./schema/s3";
+import { validate } from "./validate";
 import { type ZipEntry, zipStream } from "./zip";
 
 const BATCH_CONCURRENCY = 10;
 
-const bucketModel = z.object({
-  Name: z.string().default(""),
-  CreationDate: dateTime,
-});
-
-const s3ObjectModel = z.object({
-  Key: z.string().default(""),
-  LastModified: dateTime,
-  ETag: z.string().default(""),
-  Size: z.number().default(0),
-  StorageClass: nullable(z.string()),
-});
-
-const s3ObjectContentModel = s3ObjectModel.extend({
-  ContentType: nullable(z.string()),
-  Metadata: nullable(stringMap),
-  Content: nullable(z.string()),
-});
-
-const objectListModel = z.object({
-  Objects: z.array(s3ObjectModel),
-  CommonPrefixes: z.array(z.object({ Prefix: z.string().default("") })).default([]),
-  Prefix: z.string(),
-  NextContinuationToken: nullable(z.string()),
-  IsTruncated: z.boolean().default(false),
-});
-
-const objectListBatchModel = z.record(z.string(), objectListModel);
-
 type ObjectList = z.input<typeof objectListModel>;
-
-type PrefixParams = {
-  prefix: string;
-  continuation_token?: string | null;
-  max_keys?: number;
-  filter_text?: string | null;
-  delimiter?: string;
-};
 
 export const s3Routes = new Hono<AppEnv>();
 
@@ -111,12 +89,6 @@ function contentDisposition(disposition: string, filename: string): string {
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-/** Non-numeric falls back rather than failing the request. */
-function intParam(raw: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 /** Bound how many prefix lookups are in flight at once. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
@@ -136,26 +108,16 @@ s3Routes.get("/buckets", async (c) => {
   return respondWith(z.array(bucketModel), response.Buckets ?? []);
 });
 
-s3Routes.get("/buckets/:bucket/objects", async (c) => {
-  const q = c.req.query();
-  return respondWith(
-    objectListModel,
-    await fetchObjects(c.get("s3"), c.req.param("bucket"), {
-      prefix: q.prefix ?? "",
-      continuation_token: q.continuation_token,
-      max_keys: intParam(q.max_keys, 1000),
-      filter_text: q.filter_text,
-      delimiter: q.delimiter,
-    }),
-  );
+s3Routes.get("/buckets/:bucket/objects", validate("query", objectListQueryModel), async (c) => {
+  return respondWith(objectListModel, await fetchObjects(c.get("s3"), c.req.param("bucket"), c.req.valid("query")));
 });
 
-s3Routes.post("/buckets/:bucket/objects/batch", async (c) => {
+s3Routes.post("/buckets/:bucket/objects/batch", validate("json", objectListBatchRequestModel), async (c) => {
   const bucket = c.req.param("bucket");
-  const body = await c.req.json<{ requests?: PrefixParams[] }>();
+  const body = c.req.valid("json");
   const s3 = c.get("s3");
 
-  const jobs = (body.requests ?? []).map((r) => ({ prefix: r.prefix, run: () => fetchObjects(s3, bucket, r) }));
+  const jobs = body.requests.map((r) => ({ prefix: r.prefix, run: () => fetchObjects(s3, bucket, r) }));
 
   const results: Record<string, ObjectList> = {};
   const settled = await mapWithConcurrency(jobs, BATCH_CONCURRENCY, async (job) => {
@@ -232,7 +194,8 @@ s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
   const key = c.req.param("key");
   const form = await c.req.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) return c.json({ error: "Expected a multipart body with a `file` field" }, 400);
+  if (!(file instanceof File))
+    throw new HTTPException(400, { message: "Expected a multipart body with a `file` field" });
 
   const contentType = file.type || Bun.file(key).type;
   await new Upload({
@@ -248,10 +211,9 @@ s3Routes.delete("/buckets/:bucket/objects/:key{.+}", async (c) => {
   return c.json({ message: "Object deleted successfully" });
 });
 
-s3Routes.post("/buckets/:bucket/delete-prefix", async (c) => {
+s3Routes.post("/buckets/:bucket/delete-prefix", validate("json", deletePrefixRequestModel), async (c) => {
   const bucket = c.req.param("bucket");
-  const { prefix } = await c.req.json<{ prefix: unknown }>();
-  if (typeof prefix !== "string") throw new HTTPException(400, { message: "Expected a string `prefix`" });
+  const { prefix } = c.req.valid("json");
   const s3 = c.get("s3");
 
   let count = 0;
@@ -269,14 +231,8 @@ function copySource(bucket: string, key: string): string {
   return `${encodeURIComponent(bucket)}/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-s3Routes.post("/copy", async (c) => {
-  const req = await c.req.json<{
-    source_bucket: string;
-    source_key: string;
-    destination_bucket: string;
-    destination_key: string;
-    move?: boolean;
-  }>();
+s3Routes.post("/copy", validate("json", copyRequestModel), async (c) => {
+  const req = c.req.valid("json");
   const s3 = c.get("s3");
 
   await s3.send(
@@ -295,14 +251,8 @@ s3Routes.post("/copy", async (c) => {
   return c.json({ message: "Object copied successfully" });
 });
 
-s3Routes.post("/copy-prefix", async (c) => {
-  const req = await c.req.json<{
-    source_bucket: string;
-    source_prefix: string;
-    destination_bucket: string;
-    destination_prefix: string;
-    move?: boolean;
-  }>();
+s3Routes.post("/copy-prefix", validate("json", copyPrefixRequestModel), async (c) => {
+  const req = c.req.valid("json");
   const s3 = c.get("s3");
 
   let count = 0;
@@ -328,9 +278,9 @@ s3Routes.post("/copy-prefix", async (c) => {
   return c.json({ message: `Successfully ${req.move ? "moved" : "copied"} ${count} objects` });
 });
 
-s3Routes.get("/buckets/:bucket/download-prefix", async (c) => {
+s3Routes.get("/buckets/:bucket/download-prefix", validate("query", downloadPrefixQueryModel), async (c) => {
   const bucket = c.req.param("bucket");
-  const prefix = c.req.query("prefix") ?? "";
+  const { prefix } = c.req.valid("query");
   const s3 = c.get("s3");
 
   async function* entries(): AsyncGenerator<ZipEntry> {

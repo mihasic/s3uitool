@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { dateTime, nullable, respondWith, stringMap } from "../src/model";
+import { respondWith } from "../src/model";
+import { dateTime, nullable, stringMap } from "../src/schema/common";
 
 const example = z.object({
   Key: z.string().default(""),

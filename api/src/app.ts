@@ -7,8 +7,10 @@ import type { AppEnv } from "./context";
 import { corsMiddleware } from "./cors";
 import { onError } from "./errors";
 import { callerIdentity } from "./identity";
+import { respondWith } from "./model";
 import { findProfile, getRegistry, toPublicProfile } from "./profiles";
 import { s3Routes } from "./s3";
+import { appConfigModel, identityModel } from "./schema/config";
 import { sqsRoutes } from "./sqs";
 import { resolveStaticFile } from "./static";
 
@@ -42,13 +44,13 @@ app.route("/api/:profile/sqs", sqsRoutes);
 app.route("/api/s3", s3Routes);
 app.route("/api/sqs", sqsRoutes);
 
-app.get("/api/config", async (c) => {
+app.get("/api/config", async () => {
   const { profiles, defaultId } = await getRegistry(true);
-  return c.json({ defaultProfile: defaultId, profiles: profiles.map(toPublicProfile) });
+  return respondWith(appConfigModel, { defaultProfile: defaultId, profiles: profiles.map(toPublicProfile) });
 });
 
 app.use("/api/:profile/identity", (c, next) => withProfile(c, next, c.req.param("profile")));
-app.get("/api/:profile/identity", async (c) => c.json(await callerIdentity(c.get("profile"))));
+app.get("/api/:profile/identity", async (c) => respondWith(identityModel, await callerIdentity(c.get("profile"))));
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 

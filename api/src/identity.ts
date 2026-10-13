@@ -1,14 +1,7 @@
 import { GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 import { getStsClient } from "./aws";
 import type { Profile } from "./profiles";
-
-export interface Identity {
-  available: boolean;
-  accountId: string | null;
-  arn: string | null;
-  userId: string | null;
-  reason?: string;
-}
+import type { Identity } from "./schema/config";
 
 const UNAVAILABLE_TIMEOUT_MS = 5_000;
 
