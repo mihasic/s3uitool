@@ -77,6 +77,7 @@ const objectBrowserRoute = createRoute({
     prefix: typeof search.prefix === "string" ? search.prefix : "",
   }),
   beforeLoad: ({ context, params }) => guardService(context.config, params.profile, "s3"),
+  remountDeps: ({ params, search }) => ({ ...params, prefix: search.prefix }),
   component: ObjectBrowser,
 });
 

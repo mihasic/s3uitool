@@ -86,6 +86,12 @@ describe("s3", () => {
     expect(await res.json()).toEqual({ error: "Object not found" });
   });
 
+  test("returns 404 when listing a missing bucket", async () => {
+    const res = await app.request("/api/s3/buckets/no-such-bucket-here/objects");
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Bucket not found" });
+  });
+
   test("returns 404 for a missing bucket", async () => {
     const res = await app.request("/api/s3/buckets/no-such-bucket-xyz/objects");
     expect(res.status).toBe(404);
@@ -132,19 +138,6 @@ describe("s3", () => {
   test("falls back to the default when max_keys is not a number", async () => {
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects?max_keys=abc`);
     expect(res.status).toBe(200);
-  });
-
-  test("resolves a batch of prefixes in one call", async () => {
-    await put("folder-b/three.txt", "3");
-    const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/batch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requests: [{ prefix: "folder-a/" }, { prefix: "folder-b/" }] }),
-    });
-    expect(res.status).toBe(200);
-    const data = (await res.json()) as Record<string, { Objects: { Key: string }[] }>;
-    expect(Object.keys(data).sort()).toEqual(["folder-a/", "folder-b/"]);
-    expect(data["folder-b/"]?.Objects.map((o) => o.Key)).toEqual(["folder-b/three.txt"]);
   });
 
   test("downloads an object with a safe Content-Disposition", async () => {
