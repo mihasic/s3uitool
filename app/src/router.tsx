@@ -2,16 +2,18 @@ import type { AppConfig } from "@api/schema/config";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
-import { configQuery } from "@/hooks/useConfig";
+import { configQuery, fallbackConfig } from "@/hooks/useConfig";
 import { queryClient } from "@/lib/query-client";
 import { BucketList } from "@/pages/BucketList";
 import { MessageList } from "@/pages/MessageList";
 import { ObjectBrowser } from "@/pages/ObjectBrowser";
 import { QueueList } from "@/pages/QueueList";
-import { activeProfile, findProfile } from "@/types/config";
+import { defaultProfileId, findProfile } from "@/types/config";
 
 const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async ({ context }) => ({ config: await context.queryClient.ensureQueryData(configQuery) }),
+  beforeLoad: async ({ context }) => ({
+    config: await context.queryClient.ensureQueryData(configQuery).catch(fallbackConfig),
+  }),
   pendingComponent: () => <div className="flex h-screen items-center justify-center">Loading...</div>,
   component: Layout,
 });
@@ -20,10 +22,6 @@ function landing(config: AppConfig, profileId: string) {
   const profile = findProfile(config, profileId);
   if (profile?.sqs && !profile.s3) return { to: "/$profile/sqs", params: { profile: profileId } } as const;
   return { to: "/$profile/s3", params: { profile: profileId } } as const;
-}
-
-function defaultProfileId(config: AppConfig): string | undefined {
-  return activeProfile(config, undefined)?.id;
 }
 
 function prefixSearch(search: Record<string, unknown>): { prefix: string } {
@@ -41,8 +39,7 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: ({ context }) => {
-    const profile = defaultProfileId(context.config);
-    if (profile) throw redirect(landing(context.config, profile));
+    throw redirect(landing(context.config, defaultProfileId(context.config)));
   },
   component: () => null,
 });
@@ -51,9 +48,9 @@ const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/$profile",
   beforeLoad: ({ context, params }) => {
-    if (findProfile(context.config, params.profile)) return;
-    const fallback = defaultProfileId(context.config);
-    if (fallback) throw redirect(landing(context.config, fallback));
+    if (!findProfile(context.config, params.profile)) {
+      throw redirect(landing(context.config, defaultProfileId(context.config)));
+    }
   },
 });
 
@@ -99,8 +96,7 @@ const legacyBucketsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/s3",
   beforeLoad: ({ context }) => {
-    const profile = defaultProfileId(context.config);
-    if (profile) throw redirect({ to: "/$profile/s3", params: { profile } });
+    throw redirect({ to: "/$profile/s3", params: { profile: defaultProfileId(context.config) } });
   },
   component: () => null,
 });
@@ -111,9 +107,7 @@ const legacyObjectBrowserRoute = createRoute({
   validateSearch: prefixSearch,
   beforeLoad: ({ context, params, search }) => {
     const profile = defaultProfileId(context.config);
-    if (profile) {
-      throw redirect({ to: "/$profile/s3/$bucket", params: { profile, bucket: params.bucket }, search });
-    }
+    throw redirect({ to: "/$profile/s3/$bucket", params: { profile, bucket: params.bucket }, search });
   },
   component: () => null,
 });
@@ -122,8 +116,7 @@ const legacyQueuesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sqs",
   beforeLoad: ({ context }) => {
-    const profile = defaultProfileId(context.config);
-    if (profile) throw redirect({ to: "/$profile/sqs", params: { profile } });
+    throw redirect({ to: "/$profile/sqs", params: { profile: defaultProfileId(context.config) } });
   },
   component: () => null,
 });
@@ -133,9 +126,7 @@ const legacyMessagesRoute = createRoute({
   path: "/sqs/$queueName",
   beforeLoad: ({ context, params }) => {
     const profile = defaultProfileId(context.config);
-    if (profile) {
-      throw redirect({ to: "/$profile/sqs/$queueName", params: { profile, queueName: params.queueName } });
-    }
+    throw redirect({ to: "/$profile/sqs/$queueName", params: { profile, queueName: params.queueName } });
   },
   component: () => null,
 });

@@ -1,13 +1,13 @@
 import { useParams } from "@tanstack/react-router";
 import { useConfig } from "@/hooks/useConfig";
 import { createApi, type ProfileApi } from "@/lib/api";
-import { activeProfile } from "@/types/config";
+import { defaultProfileId } from "@/types/config";
 
 /** The profile id from the route, falling back to the server's default. */
 export function useProfileId(): string {
   const params = useParams({ strict: false }) as { profile?: string };
   const config = useConfig();
-  return params.profile ?? activeProfile(config, undefined)?.id ?? "default";
+  return params.profile ?? defaultProfileId(config);
 }
 
 export function useProfileApi(): ProfileApi {

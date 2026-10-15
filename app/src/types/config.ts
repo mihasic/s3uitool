@@ -5,6 +5,10 @@ export function findProfile(config: AppConfig, id: string | undefined): PublicPr
 }
 
 /** The profile a route should fall back to when its `$profile` param is missing or stale. */
-export function activeProfile(config: AppConfig, id: string | undefined): PublicProfile | undefined {
+export function activeProfile(config: AppConfig, id: string | undefined): PublicProfile {
   return findProfile(config, id) ?? findProfile(config, config.defaultProfile) ?? config.profiles[0];
+}
+
+export function defaultProfileId(config: AppConfig): string {
+  return activeProfile(config, undefined).id;
 }
