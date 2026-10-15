@@ -8,8 +8,8 @@ export function getErrorMessage(err: unknown): string {
 }
 
 /** Log an error and show a toast, with the API's explanation as the description. */
-export function reportError(userMessage: string, err: unknown): void {
+export function reportError(userMessage: string, err: unknown, id?: string): void {
   console.error(userMessage, err);
   const detail = getErrorMessage(err);
-  toast.error(userMessage, detail && detail !== userMessage ? { description: detail } : undefined);
+  toast.error(userMessage, { id, description: detail && detail !== userMessage ? detail : undefined });
 }

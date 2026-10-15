@@ -12,12 +12,13 @@ const FALLBACK_CONFIG: AppConfig = {
 export const configQuery = queryOptions({
   queryKey: ["config"],
   queryFn: getConfig,
+  retry: false,
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
 });
 
 export function fallbackConfig(err: unknown): AppConfig {
-  reportError("Couldn't load app config from the server — showing all features.", err);
+  reportError("Couldn't load app config from the server — showing all features.", err, "config");
   return FALLBACK_CONFIG;
 }
 
