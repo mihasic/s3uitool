@@ -14,7 +14,7 @@ import { type Listing, listingOf, useObjectBrowser } from "@/hooks/useObjectBrow
 import { useProfileApi } from "@/hooks/useProfileApi";
 import { bucketPath, downloadPath, downloadPrefixPath, objectPath } from "@/lib/api";
 import { reportError } from "@/lib/errors";
-import { fileExtension, getDualPreviewKind, getParent, IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
 import { useAppMutation } from "@/lib/query-client";
 import type { CopyMove, CopyMoveTarget, PreviewFile, PutObject } from "@/types/s3";
 
@@ -59,8 +59,6 @@ export function ObjectBrowser() {
     const listing = listingOf(query, profile, bucket);
     return listing !== null && match(listing);
   };
-  const shows = (listing: Listing, key: string) =>
-    listing.flat ? key.startsWith(listing.prefix) : listing.prefix === getParent(key);
   const contains = (listing: Listing, key: string) => key.startsWith(listing.prefix);
   const within = (listing: Listing, folder: string) => listing.prefix.startsWith(folder);
 
@@ -68,7 +66,7 @@ export function ObjectBrowser() {
     mutationFn: (key: string) => api.delete(objectPath(bucket, key)),
     error: "Failed to delete file",
     success: "File deleted successfully",
-    invalidates: (query, key) => listingMatches(query, (listing) => shows(listing, key)),
+    invalidates: (query, key) => listingMatches(query, (listing) => contains(listing, key)),
   });
 
   const deleteFolder = useAppMutation({
@@ -77,7 +75,7 @@ export function ObjectBrowser() {
     error: "Failed to delete folder",
     success: "Folder deleted successfully",
     invalidates: (query, folder) =>
-      listingMatches(query, (listing) => shows(listing, folder) || within(listing, folder)),
+      listingMatches(query, (listing) => contains(listing, folder) || within(listing, folder)),
   });
 
   const putObject = useAppMutation({
@@ -116,7 +114,7 @@ export function ObjectBrowser() {
       return listingMatches(
         query,
         (listing) =>
-          shows(listing, key) ||
+          contains(listing, key) ||
           contains(listing, target) ||
           (isFolder && (within(listing, key) || within(listing, target))),
       );
