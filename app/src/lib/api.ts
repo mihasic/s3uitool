@@ -69,8 +69,25 @@ export function objectPath(bucket: string, key: string): string {
   return `${bucketPath(bucket)}/objects/${encodeURIComponent(key)}`;
 }
 
+export function withSearch(path: string, params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [name, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(name, String(value));
+  }
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
+}
+
 export function downloadPath(bucket: string, key: string, inline = false): string {
-  return `${bucketPath(bucket)}/download/${encodeURIComponent(key)}${inline ? "?inline=true" : ""}`;
+  return withSearch(`${bucketPath(bucket)}/download/${encodeURIComponent(key)}`, { inline: inline || undefined });
+}
+
+export function downloadPrefixPath(bucket: string, prefix: string): string {
+  return withSearch(`${bucketPath(bucket)}/download-prefix`, { prefix });
+}
+
+export function queuePath(name: string): string {
+  return `sqs/queues/${encodeURIComponent(name)}`;
 }
 
 export interface ProfileApi {

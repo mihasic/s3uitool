@@ -1,5 +1,4 @@
 import type { Queue } from "@api/schema/sqs";
-import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -7,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { queuesKey, useQueues } from "@/hooks/useApi";
 import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
+import { queuePath } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { useAppMutation } from "@/lib/query-client";
 
 function QueueCounts({ queue }: { queue: Queue }) {
   if (queue.Available === null) return <span className="text-muted-foreground">&mdash;</span>;
@@ -29,9 +30,11 @@ export function QueueList() {
   const api = useProfileApi();
   const profile = useProfileId();
 
-  const purgeQueueMutation = useMutation({
-    mutationFn: (queueName: string) => api.post(`sqs/queues/${queueName}/purge`, {}),
-    meta: { error: "Failed to purge queue", success: "Queue purged successfully", invalidates: queuesKey(profile) },
+  const purgeQueueMutation = useAppMutation({
+    mutationFn: (queueName: string) => api.post(`${queuePath(queueName)}/purge`, {}),
+    error: "Failed to purge queue",
+    success: "Queue purged successfully",
+    invalidates: queuesKey(profile),
   });
 
   const handlePurge = async (queueName: string) => {

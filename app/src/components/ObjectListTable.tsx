@@ -16,8 +16,8 @@ interface ObjectListTableProps {
   onDownload: (key: string) => void;
   onCopyMove: (target: CopyMoveTarget) => void;
   onDelete: (key: string) => void;
-  onDeleteFolder?: (prefix: string) => void;
-  onDownloadFolder?: (prefix: string) => void;
+  onDeleteFolder: (prefix: string) => void;
+  onDownloadFolder: (prefix: string) => void;
   onToggleFolder: (prefix: string) => void;
   onFileDrop: (file: File) => void;
   viewMode: ViewMode;
@@ -160,16 +160,14 @@ export function ObjectListTable({
                   <TableCell>
                     <div className="flex gap-2">
                       <div className="w-9 h-9" aria-hidden="true" />
-                      {onDownloadFolder && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDownloadFolder(item.key)}
-                          title="Download Folder as Zip"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDownloadFolder(item.key)}
+                        title="Download Folder as Zip"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -186,17 +184,15 @@ export function ObjectListTable({
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Button>
-                      {onDeleteFolder && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDeleteFolder(item.key)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                          title="Delete Folder"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDeleteFolder(item.key)}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        title="Delete Folder"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -258,9 +254,11 @@ export function ObjectListTable({
                     </button>
                   )}
                 </TableCell>
-                <TableCell>{item.size !== undefined ? formatSize(item.size) : "-"}</TableCell>
-                <TableCell>{item.lastModified ? new Date(item.lastModified).toLocaleString() : "-"}</TableCell>
-                <TableCell className="font-mono text-xs">{item.etag?.replace(/"/g, "") || "-"}</TableCell>
+                <TableCell>{formatSize(item.object.Size)}</TableCell>
+                <TableCell>
+                  {item.object.LastModified ? new Date(item.object.LastModified).toLocaleString() : "-"}
+                </TableCell>
+                <TableCell className="font-mono text-xs">{item.object.ETag.replace(/"/g, "") || "-"}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button

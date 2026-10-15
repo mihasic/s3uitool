@@ -1,49 +1,43 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { CopyMoveTarget } from "@/types/s3";
+import type { AppMutation } from "@/lib/query-client";
+import type { CopyMove, CopyMoveTarget } from "@/types/s3";
 
 interface CopyMoveModalProps {
   target: CopyMoveTarget | null;
   onClose: () => void;
-  onConfirm: (target: CopyMoveTarget, destination: string) => void;
+  copyMove: AppMutation<CopyMove>;
 }
 
-export function CopyMoveModal({ target, onClose, onConfirm }: CopyMoveModalProps) {
+export function CopyMoveModal({ target, onClose, copyMove }: CopyMoveModalProps) {
+  const verb = target?.action === "move" ? "Move" : "Copy";
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[625px]">
-        {target && <CopyMoveForm target={target} onClose={onClose} onConfirm={onConfirm} />}
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={target !== null}
+      onClose={onClose}
+      title={`${verb} Object`}
+      description={target && `${verb} "${target.key}" to a new location.`}
+      className="sm:max-w-[625px]"
+    >
+      {target && <CopyMoveForm target={target} verb={verb} onClose={onClose} copyMove={copyMove} />}
+    </FormDialog>
   );
 }
 
-function CopyMoveForm({ target, onClose, onConfirm }: CopyMoveModalProps & { target: CopyMoveTarget }) {
+function CopyMoveForm({
+  target,
+  verb,
+  onClose,
+  copyMove,
+}: Omit<CopyMoveModalProps, "target"> & { target: CopyMoveTarget; verb: string }) {
   const [destination, setDestination] = useState(target.key);
-  const verb = target.action === "copy" ? "Copy" : "Move";
 
-  const handleConfirm = () => {
-    onConfirm(target, destination);
-    onClose();
-  };
+  const handleConfirm = () => copyMove.mutate({ ...target, destination }, { onSuccess: onClose });
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>{verb} Object</DialogTitle>
-        <DialogDescription>
-          {verb} "{target.key}" to a new location.
-        </DialogDescription>
-      </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="grid grid-cols-4 items-center gap-4">
           <Input
@@ -58,7 +52,9 @@ function CopyMoveForm({ target, onClose, onConfirm }: CopyMoveModalProps & { tar
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleConfirm}>{verb}</Button>
+        <Button onClick={handleConfirm} disabled={copyMove.isPending}>
+          {verb}
+        </Button>
       </DialogFooter>
     </>
   );

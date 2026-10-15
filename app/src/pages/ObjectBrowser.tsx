@@ -1,5 +1,5 @@
 import type { CopyPrefixRequest, CopyRequest, DeletePrefixRequest, S3ObjectContent } from "@api/schema/s3";
-import { useMutation } from "@tanstack/react-query";
+import type { Query } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { toast } from "sonner";
@@ -9,19 +9,19 @@ import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { NewFileModal } from "@/components/NewFileModal";
 import { ObjectBrowserToolbar } from "@/components/ObjectBrowserToolbar";
 import { ObjectListTable } from "@/components/ObjectListTable";
-import { UploadModal } from "@/components/UploadModal";
-import { objectsKey } from "@/hooks/useApi";
-import { useObjectBrowser } from "@/hooks/useObjectBrowser";
+import { type UploadDraft, UploadModal } from "@/components/UploadModal";
+import { type Listing, listingOf, useObjectBrowser } from "@/hooks/useObjectBrowser";
 import { useProfileApi } from "@/hooks/useProfileApi";
-import { bucketPath, downloadPath, objectPath } from "@/lib/api";
+import { bucketPath, downloadPath, downloadPrefixPath, objectPath } from "@/lib/api";
 import { reportError } from "@/lib/errors";
-import { fileExtension, getDualPreviewKind, IMAGE_EXTENSIONS } from "@/lib/file-utils";
-import type { CopyMoveTarget, PreviewFile } from "@/types/s3";
+import { fileExtension, getDualPreviewKind, getParent, IMAGE_EXTENSIONS } from "@/lib/file-utils";
+import { useAppMutation } from "@/lib/query-client";
+import type { CopyMove, CopyMoveTarget, PreviewFile, PutObject } from "@/types/s3";
 
 const route = getRouteApi("/$profile/s3/$bucket");
 
-interface CopyMoveVariables extends CopyMoveTarget {
-  destination: string;
+function folderPrefix(destination: string): string {
+  return destination.endsWith("/") ? destination : `${destination}/`;
 }
 
 export function ObjectBrowser() {
@@ -48,50 +48,57 @@ export function ObjectBrowser() {
 
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [copyMoveTarget, setCopyMoveTarget] = useState<CopyMoveTarget | null>(null);
-  const [uploadDialog, setUploadDialog] = useState<{ file: File | null } | null>(null);
-  const [newFileModalOpen, setNewFileModalOpen] = useState(false);
+  const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null);
+  const [newFilePrefix, setNewFilePrefix] = useState<string | null>(null);
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const navigate = useNavigate();
   const confirm = useConfirm();
 
-  const invalidates = objectsKey(profile, bucket);
-  const putObject = (key: string, body: Blob) => {
-    const formData = new FormData();
-    formData.append("file", body);
-    return api.upload(objectPath(bucket, key), formData);
+  const listingMatches = (query: Query, match: (listing: Listing) => boolean) => {
+    const listing = listingOf(query, profile, bucket);
+    return listing !== null && match(listing);
   };
+  const shows = (listing: Listing, key: string) =>
+    listing.flat ? key.startsWith(listing.prefix) : listing.prefix === getParent(key);
+  const contains = (listing: Listing, key: string) => key.startsWith(listing.prefix);
+  const within = (listing: Listing, folder: string) => listing.prefix.startsWith(folder);
 
-  const deleteObject = useMutation({
+  const deleteObject = useAppMutation({
     mutationFn: (key: string) => api.delete(objectPath(bucket, key)),
-    meta: { error: "Failed to delete file", success: "File deleted successfully", invalidates },
+    error: "Failed to delete file",
+    success: "File deleted successfully",
+    invalidates: (query, key) => listingMatches(query, (listing) => shows(listing, key)),
   });
 
-  const deleteFolder = useMutation({
+  const deleteFolder = useAppMutation({
     mutationFn: (folder: string) =>
       api.post(`${bucketPath(bucket)}/delete-prefix`, { prefix: folder } satisfies DeletePrefixRequest),
-    meta: { error: "Failed to delete folder", success: "Folder deleted successfully", invalidates },
+    error: "Failed to delete folder",
+    success: "Folder deleted successfully",
+    invalidates: (query, folder) =>
+      listingMatches(query, (listing) => shows(listing, folder) || within(listing, folder)),
   });
 
-  const saveFile = useMutation({
-    mutationFn: ({ key, content }: { key: string; content: string }) =>
-      putObject(key, new Blob([content], { type: "text/plain" })),
-    meta: { error: "Failed to save file", success: "File saved successfully", invalidates },
+  const putObject = useAppMutation({
+    mutationFn: ({ key, body }: PutObject) => {
+      const formData = new FormData();
+      formData.append("file", body);
+      return api.upload(objectPath(bucket, key), formData);
+    },
+    error: ({ verb }) => `Failed to ${verb} file`,
+    success: ({ verb }) => `File ${verb === "save" ? "saved" : "uploaded"} successfully`,
+    invalidates: (query, { key }) => listingMatches(query, (listing) => contains(listing, key)),
   });
 
-  const upload = useMutation({
-    mutationFn: ({ file, key }: { file: File; key: string }) => putObject(key, file),
-    meta: { error: "Failed to upload file", success: "File uploaded successfully", invalidates },
-  });
-
-  const copyMove = useMutation({
-    mutationFn: ({ action, key, isFolder, destination }: CopyMoveVariables) =>
+  const copyMove = useAppMutation({
+    mutationFn: ({ action, key, isFolder, destination }: CopyMove) =>
       isFolder
         ? api.post("s3/copy-prefix", {
             source_bucket: bucket,
             source_prefix: key,
             destination_bucket: bucket,
-            destination_prefix: destination.endsWith("/") ? destination : `${destination}/`,
+            destination_prefix: folderPrefix(destination),
             move: action === "move",
           } satisfies CopyPrefixRequest)
         : api.post("s3/copy", {
@@ -101,11 +108,18 @@ export function ObjectBrowser() {
             destination_key: destination,
             move: action === "move",
           } satisfies CopyRequest),
-    meta: {
-      error: ({ action, isFolder }: CopyMoveVariables) => `Failed to ${action} ${isFolder ? "folder" : "file"}`,
-      success: ({ action, isFolder }: CopyMoveVariables) =>
-        `${isFolder ? "Folder" : "File"} ${action === "copy" ? "copied" : "moved"} successfully`,
-      invalidates,
+    error: ({ action, isFolder }) => `Failed to ${action} ${isFolder ? "folder" : "file"}`,
+    success: ({ action, isFolder }) =>
+      `${isFolder ? "Folder" : "File"} ${action === "copy" ? "copied" : "moved"} successfully`,
+    invalidates: (query, { key, isFolder, destination }) => {
+      const target = isFolder ? folderPrefix(destination) : destination;
+      return listingMatches(
+        query,
+        (listing) =>
+          shows(listing, key) ||
+          contains(listing, target) ||
+          (isFolder && (within(listing, key) || within(listing, target))),
+      );
     },
   });
 
@@ -158,7 +172,7 @@ export function ObjectBrowser() {
   };
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
-    if (preview || copyMoveTarget || uploadDialog || newFileModalOpen) return;
+    if (preview || copyMoveTarget || uploadDraft || newFilePrefix !== null) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -198,7 +212,10 @@ export function ObjectBrowser() {
 
   const handleSave = (content: string) => {
     if (!preview) return;
-    saveFile.mutate({ key: preview.key, content }, { onSuccess: () => setPreview(null) });
+    putObject.mutate(
+      { key: preview.key, body: new Blob([content], { type: "text/plain" }), verb: "save" },
+      { onSuccess: () => setPreview(null) },
+    );
   };
 
   const handleDownload = (key: string) => {
@@ -206,7 +223,7 @@ export function ObjectBrowser() {
   };
 
   const handleDownloadFolder = (prefix: string) => {
-    window.open(api.url(`${bucketPath(bucket)}/download-prefix?prefix=${encodeURIComponent(prefix)}`), "_blank");
+    window.open(api.url(downloadPrefixPath(bucket, prefix)), "_blank");
   };
 
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
@@ -216,8 +233,8 @@ export function ObjectBrowser() {
       <ObjectBrowserToolbar
         bucket={bucket}
         prefix={prefix}
-        onNewFile={() => setNewFileModalOpen(true)}
-        onUpload={() => setUploadDialog({ file: null })}
+        onNewFile={() => setNewFilePrefix(prefix)}
+        onUpload={() => setUploadDraft({ file: null })}
         onRefresh={refresh}
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -242,32 +259,17 @@ export function ObjectBrowser() {
         onDeleteFolder={handleDeleteFolder}
         onDownloadFolder={handleDownloadFolder}
         onToggleFolder={toggleFolder}
-        onFileDrop={(file) => setUploadDialog({ file })}
+        onFileDrop={(file) => setUploadDraft({ file })}
         viewMode={viewMode}
       />
 
       <FilePreviewDialog file={preview} onClose={() => setPreview(null)} onSave={handleSave} />
 
-      <CopyMoveModal
-        target={copyMoveTarget}
-        onClose={() => setCopyMoveTarget(null)}
-        onConfirm={(target, destination) => copyMove.mutate({ ...target, destination })}
-      />
+      <CopyMoveModal target={copyMoveTarget} onClose={() => setCopyMoveTarget(null)} copyMove={copyMove} />
 
-      <UploadModal
-        isOpen={uploadDialog !== null}
-        onClose={() => setUploadDialog(null)}
-        onUpload={(file, key) => upload.mutateAsync({ file, key })}
-        currentPrefix={prefix}
-        initialFile={uploadDialog?.file}
-      />
+      <UploadModal draft={uploadDraft} onClose={() => setUploadDraft(null)} upload={putObject} currentPrefix={prefix} />
 
-      <NewFileModal
-        isOpen={newFileModalOpen}
-        onClose={() => setNewFileModalOpen(false)}
-        onCreate={handleCreateFile}
-        currentPrefix={prefix}
-      />
+      <NewFileModal prefix={newFilePrefix} onClose={() => setNewFilePrefix(null)} onCreate={handleCreateFile} />
     </div>
   );
 }

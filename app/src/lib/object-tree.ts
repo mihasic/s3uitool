@@ -1,12 +1,6 @@
-import type { ObjectList } from "@api/schema/s3";
+import type { ObjectList, S3Object } from "@api/schema/s3";
 import type { TableItem, ViewMode } from "@/types/s3";
-
-export function getParent(key: string): string {
-  const trimmed = key.endsWith("/") ? key.slice(0, -1) : key;
-  const lastSlash = trimmed.lastIndexOf("/");
-  if (lastSlash === -1) return "";
-  return `${trimmed.slice(0, lastSlash)}/`;
-}
+import { getParent } from "./file-utils";
 
 export function reachablePrefixes(root: string, expanded: ReadonlySet<string>): string[] {
   const isReachable = (folder: string) => {
@@ -22,16 +16,8 @@ export function reachablePrefixes(root: string, expanded: ReadonlySet<string>): 
   return [...expanded].filter((folder) => folder !== root && folder.startsWith(root) && isReachable(folder));
 }
 
-function fileItem(object: ObjectList["Objects"][number], name: string, depth: number): TableItem {
-  return {
-    key: object.Key,
-    type: "file",
-    name,
-    depth,
-    size: object.Size,
-    lastModified: object.LastModified ?? undefined,
-    etag: object.ETag,
-  };
+function fileItem(object: S3Object, name: string, depth: number): TableItem {
+  return { type: "file", key: object.Key, name, depth, object };
 }
 
 export function buildItems(

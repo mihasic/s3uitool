@@ -1,51 +1,41 @@
+import type { SendMessageRequest } from "@api/schema/sqs";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { AppMutation } from "@/lib/query-client";
 
-interface SendMessageFormProps {
+interface SendMessageModalProps {
+  queueName: string | null;
   onClose: () => void;
-  onSend: (body: string, delaySeconds: number) => void;
+  send: AppMutation<SendMessageRequest>;
 }
 
-interface SendMessageModalProps extends SendMessageFormProps {
-  isOpen: boolean;
-  queueName: string;
-}
-
-export function SendMessageModal({ isOpen, queueName, ...props }: SendMessageModalProps) {
+export function SendMessageModal({ queueName, onClose, send }: SendMessageModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
-          <DialogTitle>Send Message</DialogTitle>
-          <DialogDescription>
-            Send a message to <strong>{queueName}</strong>.
-          </DialogDescription>
-        </DialogHeader>
-        <SendMessageForm {...props} />
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={queueName !== null}
+      onClose={onClose}
+      title="Send Message"
+      description={
+        <>
+          Send a message to <strong>{queueName}</strong>.
+        </>
+      }
+      className="sm:max-w-[625px]"
+    >
+      {queueName !== null && <SendMessageForm onClose={onClose} send={send} />}
+    </FormDialog>
   );
 }
 
-function SendMessageForm({ onClose, onSend }: SendMessageFormProps) {
+function SendMessageForm({ onClose, send }: Omit<SendMessageModalProps, "queueName">) {
   const [body, setBody] = useState("");
   const [delaySeconds, setDelaySeconds] = useState(0);
 
-  const handleSend = () => {
-    onSend(body, delaySeconds);
-    onClose();
-  };
+  const handleSend = () => send.mutate({ Body: body, DelaySeconds: delaySeconds }, { onSuccess: onClose });
 
   return (
     <>
@@ -76,7 +66,7 @@ function SendMessageForm({ onClose, onSend }: SendMessageFormProps) {
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSend} disabled={!body}>
+        <Button onClick={handleSend} disabled={!body || send.isPending}>
           Send Message
         </Button>
       </DialogFooter>

@@ -3,7 +3,7 @@ import type { Queue } from "@api/schema/sqs";
 import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { profileKey, useProfileApi, useProfileId } from "@/hooks/useProfileApi";
 
-export const bucketsKey = (profile: string) => profileKey(profile, "buckets");
+const bucketsKey = (profile: string) => profileKey(profile, "buckets");
 export const objectsKey = (profile: string, bucket: string) => profileKey(profile, "objects", bucket);
 export const queuesKey = (profile: string) => profileKey(profile, "queues");
 export const messagesKey = (profile: string, queue: string) => profileKey(profile, "messages", queue);

@@ -1,33 +1,45 @@
-import type { ObjectList } from "@api/schema/s3";
-import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ObjectList, ObjectListParams } from "@api/schema/s3";
+import {
+  keepPreviousData,
+  partialMatchKey,
+  type Query,
+  type UseQueryResult,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
 import { objectsKey } from "@/hooks/useApi";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useProfileApi, useProfileId } from "@/hooks/useProfileApi";
-import { bucketPath } from "@/lib/api";
+import { bucketPath, withSearch } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { buildItems, reachablePrefixes } from "@/lib/object-tree";
 import type { ViewMode } from "@/types/s3";
-
-interface ListingParams {
-  prefix: string;
-  filter_text?: string;
-  continuation_token?: string;
-  max_keys?: number;
-  delimiter?: string;
-}
 
 function savedViewMode(): ViewMode {
   const saved = localStorage.getItem("viewMode");
   return saved === "folder" || saved === "tree" || saved === "flat" ? saved : "folder";
 }
 
-function listingSearch(params: ListingParams): string {
-  const search = new URLSearchParams();
-  for (const [name, value] of Object.entries(params)) {
-    if (value !== undefined) search.set(name, String(value));
+export interface Listing {
+  prefix: string;
+  flat: boolean;
+}
+
+export function listingOf(query: Query, profile: string, bucket: string): Listing | null {
+  const bucketKey = objectsKey(profile, bucket);
+  if (query.queryKey.length !== bucketKey.length + 1 || !partialMatchKey(query.queryKey, bucketKey)) return null;
+  const params = query.queryKey[bucketKey.length] as ObjectListParams;
+  return { prefix: params.prefix ?? "", flat: params.delimiter === "" };
+}
+
+function combineListings(results: UseQueryResult<ObjectList>[]) {
+  const listings = new Map<string, ObjectList>();
+  for (const { data } of results) {
+    if (data) listings.set(data.Prefix, data);
   }
-  return search.toString();
+  return { listings, isFetching: results.some((result) => result.isFetching) };
 }
 
 export function useObjectBrowser(bucket: string, prefix: string) {
@@ -45,10 +57,10 @@ export function useObjectBrowser(bucket: string, prefix: string) {
   const [pageSize, setPageSize] = useState(20);
 
   const bucketKey = objectsKey(profile, bucket);
-  const listing = (params: ListingParams) => ({
+  const listing = (params: ObjectListParams) => ({
     queryKey: [...bucketKey, params],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
-      api.get<ObjectList>(`${bucketPath(bucket)}/objects?${listingSearch(params)}`, { signal }),
+      api.get<ObjectList>(withSearch(`${bucketPath(bucket)}/objects`, params), { signal }),
   });
 
   const root = useQuery({
@@ -69,14 +81,12 @@ export function useObjectBrowser(bucket: string, prefix: string) {
       : expanded;
 
   const childPrefixes = viewMode === "flat" ? [] : reachablePrefixes(prefix, expandedFolders);
-  const children = useQueries({ queries: childPrefixes.map((p) => listing({ prefix: p })) });
-
-  const listings = new Map<string, ObjectList>();
-  childPrefixes.forEach((p, i) => {
-    const data = children[i]?.data;
-    if (data) listings.set(p, data);
+  const children = useQueries({
+    queries: childPrefixes.map((p) => listing({ prefix: p })),
+    combine: combineListings,
   });
-  if (root.data) listings.set(prefix, root.data);
+
+  const listings = root.data ? new Map(children.listings).set(prefix, root.data) : children.listings;
 
   const nextToken = rootData?.NextContinuationToken;
   const knownTokens =
@@ -89,9 +99,15 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     setAutoExpand(true);
   };
 
+  const resetPaging = () => {
+    setCurrentPage(0);
+    setPageTokens([null]);
+    resetTree();
+  };
+
   return {
     items: buildItems(prefix, viewMode, listings, expandedFolders),
-    loading: root.isFetching || children.some((q) => q.isFetching),
+    loading: root.isFetching || children.isFetching,
     error: root.error ? getErrorMessage(root.error) : null,
     viewMode,
     setViewMode: (mode: ViewMode) => {
@@ -110,9 +126,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     filterText: rawFilterText,
     setFilterText: (text: string) => {
       setRawFilterText(text);
-      setCurrentPage(0);
-      setPageTokens([null]);
-      resetTree();
+      resetPaging();
     },
     currentPage,
     setCurrentPage: (page: number) => {
@@ -124,9 +138,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     pageSize,
     setPageSize: (size: number) => {
       setPageSize(size);
-      setCurrentPage(0);
-      setPageTokens([null]);
-      resetTree();
+      resetPaging();
     },
   };
 }

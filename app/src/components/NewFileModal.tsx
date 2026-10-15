@@ -1,44 +1,33 @@
 import { FilePlus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validateObjectKey } from "@/lib/file-utils";
 
-interface NewFileFormProps {
+interface NewFileModalProps {
+  prefix: string | null;
   onClose: () => void;
   onCreate: (key: string) => void;
-  currentPrefix: string;
 }
 
-interface NewFileModalProps extends NewFileFormProps {
-  isOpen: boolean;
-}
-
-export function NewFileModal({ isOpen, ...props }: NewFileModalProps) {
+export function NewFileModal({ prefix, onClose, onCreate }: NewFileModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Create New File</DialogTitle>
-          <DialogDescription>Create a new file in the current location.</DialogDescription>
-        </DialogHeader>
-        <NewFileForm {...props} />
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={prefix !== null}
+      onClose={onClose}
+      title="Create New File"
+      description="Create a new file in the current location."
+      className="sm:max-w-[425px]"
+    >
+      {prefix !== null && <NewFileForm prefix={prefix} onClose={onClose} onCreate={onCreate} />}
+    </FormDialog>
   );
 }
 
-function NewFileForm({ onClose, onCreate, currentPrefix }: NewFileFormProps) {
-  const [key, setKey] = useState(`${currentPrefix}newfile.json`);
+function NewFileForm({ prefix, onClose, onCreate }: NewFileModalProps & { prefix: string }) {
+  const [key, setKey] = useState(`${prefix}newfile.json`);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {

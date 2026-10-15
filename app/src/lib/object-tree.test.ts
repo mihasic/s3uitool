@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ObjectList } from "@api/schema/s3";
-import { buildItems, getParent, reachablePrefixes } from "./object-tree";
+import { buildItems, reachablePrefixes } from "./object-tree";
 
 function listing(prefix: string, folders: string[], files: string[] = []): ObjectList {
   return {
@@ -11,20 +11,6 @@ function listing(prefix: string, folders: string[], files: string[] = []): Objec
     IsTruncated: false,
   };
 }
-
-describe("getParent", () => {
-  it("returns the enclosing folder", () => {
-    expect(getParent("a/b/")).toBe("a/");
-    expect(getParent("a/b/c.txt")).toBe("a/b/");
-    expect(getParent("a/")).toBe("");
-    expect(getParent("top.txt")).toBe("");
-  });
-
-  it("keeps empty segments", () => {
-    expect(getParent("a//b/")).toBe("a//");
-    expect(getParent("a//")).toBe("a/");
-  });
-});
 
 describe("reachablePrefixes", () => {
   it("includes folders whose ancestors are all expanded", () => {
@@ -52,7 +38,7 @@ describe("buildItems", () => {
 
   it("nests expanded folders under their parent", () => {
     const items = buildItems("", "tree", listings, new Set(["a/"]));
-    expect(items.map((i) => [i.key, i.depth, i.isExpanded])).toEqual([
+    expect(items.map((i) => [i.key, i.depth, i.type === "folder" ? i.isExpanded : undefined])).toEqual([
       ["a/", 0, true],
       ["a/x/", 1, false],
       ["a/one.txt", 1, undefined],

@@ -1,5 +1,5 @@
 import type { Message, SendMessageRequest } from "@api/schema/sqs";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { messagesKey } from "@/hooks/useApi";
 import { useProfileApi } from "@/hooks/useProfileApi";
+import { queuePath } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { detectLanguage } from "@/lib/file-utils";
+import { useAppMutation } from "@/lib/query-client";
 
 // Monaco is most of the bundle — pull it in only when a message is opened.
 const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
@@ -21,7 +23,7 @@ const route = getRouteApi("/$profile/sqs/$queueName");
 export function MessageList() {
   const { profile, queueName } = route.useParams();
   const api = useProfileApi();
-  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const confirm = useConfirm();
 
@@ -34,23 +36,23 @@ export function MessageList() {
     refetch,
   } = useQuery({
     queryKey,
-    queryFn: () => api.get<Message[]>(`sqs/queues/${queueName}/messages`),
+    queryFn: () => api.get<Message[]>(`${queuePath(queueName)}/messages`),
     refetchInterval: 5000,
   });
 
-  const sendMutation = useMutation({
-    mutationFn: (vars: { body: string; delaySeconds: number }) =>
-      api.post(`sqs/queues/${queueName}/messages`, {
-        Body: vars.body,
-        DelaySeconds: vars.delaySeconds,
-      } satisfies SendMessageRequest),
-    meta: { error: "Failed to send message", success: "Message sent successfully", invalidates: queryKey },
+  const sendMutation = useAppMutation({
+    mutationFn: (request: SendMessageRequest) => api.post(`${queuePath(queueName)}/messages`, request),
+    error: "Failed to send message",
+    success: "Message sent successfully",
+    invalidates: queryKey,
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useAppMutation({
     mutationFn: (receiptHandle: string) =>
-      api.delete(`sqs/queues/${queueName}/messages/${encodeURIComponent(receiptHandle)}`),
-    meta: { error: "Failed to delete message", success: "Message deleted successfully", invalidates: queryKey },
+      api.delete(`${queuePath(queueName)}/messages/${encodeURIComponent(receiptHandle)}`),
+    error: "Failed to delete message",
+    success: "Message deleted successfully",
+    invalidates: queryKey,
   });
 
   const handleDelete = async (receiptHandle: string) => {
@@ -85,7 +87,7 @@ export function MessageList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={() => setSendModalOpen(true)}>
+          <Button onClick={() => setSendTo(queueName)}>
             <Send className="h-4 w-4 mr-2" />
             Send Message
           </Button>
@@ -142,12 +144,7 @@ export function MessageList() {
         </Table>
       </div>
 
-      <SendMessageModal
-        isOpen={sendModalOpen}
-        onClose={() => setSendModalOpen(false)}
-        onSend={(body, delaySeconds) => sendMutation.mutate({ body, delaySeconds })}
-        queueName={queueName}
-      />
+      <SendMessageModal queueName={sendTo} onClose={() => setSendTo(null)} send={sendMutation} />
 
       <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col">

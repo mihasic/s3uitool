@@ -1,49 +1,47 @@
 import { Upload } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage } from "@/lib/errors";
 import { validateObjectKey } from "@/lib/file-utils";
+import type { AppMutation } from "@/lib/query-client";
+import type { PutObject } from "@/types/s3";
 
-interface UploadFormProps {
+export interface UploadDraft {
+  file: File | null;
+}
+
+interface UploadModalProps {
+  draft: UploadDraft | null;
   onClose: () => void;
-  onUpload: (file: File, key: string) => Promise<unknown>;
+  upload: AppMutation<PutObject>;
   currentPrefix: string;
-  initialFile?: File | null;
 }
 
-interface UploadModalProps extends UploadFormProps {
-  isOpen: boolean;
-}
-
-export function UploadModal({ isOpen, ...props }: UploadModalProps) {
+export function UploadModal({ draft, ...props }: UploadModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
-          <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>Upload a file to the current location.</DialogDescription>
-        </DialogHeader>
-        <UploadForm {...props} />
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={draft !== null}
+      onClose={props.onClose}
+      title="Upload File"
+      description="Upload a file to the current location."
+      className="sm:max-w-[625px]"
+    >
+      {draft && <UploadForm initialFile={draft.file} {...props} />}
+    </FormDialog>
   );
 }
 
-function UploadForm({ onClose, onUpload, currentPrefix, initialFile }: UploadFormProps) {
-  const [file, setFile] = useState(initialFile ?? null);
+function UploadForm({
+  onClose,
+  upload,
+  currentPrefix,
+  initialFile,
+}: Omit<UploadModalProps, "draft"> & { initialFile: File | null }) {
+  const [file, setFile] = useState(initialFile);
   const [key, setKey] = useState(currentPrefix + (initialFile?.name ?? ""));
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -54,28 +52,21 @@ function UploadForm({ onClose, onUpload, currentPrefix, initialFile }: UploadFor
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
       setError("Please select a file");
       return;
     }
-
     const validationError = validateObjectKey(key);
     if (validationError) {
       setError(validationError);
       return;
     }
-
-    setUploading(true);
-    try {
-      await onUpload(file, key);
-      onClose();
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setUploading(false);
-    }
+    upload.mutate({ key, body: file, verb: "upload" }, { onSuccess: onClose });
   };
+
+  const uploading = upload.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
