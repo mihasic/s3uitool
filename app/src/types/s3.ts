@@ -1,53 +1,27 @@
-export interface S3Object {
-  Key: string;
-  LastModified: string;
-  ETag: string;
-  Size: number;
-  StorageClass: string;
-}
+import type { S3Object } from "@api/schema/s3";
 
-export interface CommonPrefix {
-  Prefix: string;
-}
-
-export interface ObjectListResponse {
-  Objects: S3Object[];
-  CommonPrefixes: CommonPrefix[];
-  Prefix: string;
-  NextContinuationToken?: string;
-  IsTruncated?: boolean;
-}
-
-export interface Bucket {
-  Name: string;
-  CreationDate: string;
-}
-
-export interface Queue {
-  Url: string;
-  Name: string;
-  Available: number | null;
-  InFlight: number | null;
-  Delayed: number | null;
-}
-
-export interface Message {
-  MessageId: string;
-  ReceiptHandle: string;
-  Body: string;
-  MD5OfBody: string;
-  Attributes?: Record<string, string>;
-}
-
-export interface TableItem {
-  key: string;
-  type: "file" | "folder";
-  name: string;
-  depth: number;
-  size?: number;
-  lastModified?: string;
-  etag?: string;
-  isExpanded?: boolean;
-}
+export type TableItem =
+  | { type: "folder"; key: string; name: string; depth: number; isExpanded: boolean }
+  | { type: "file"; key: string; name: string; depth: number; object: S3Object };
 
 export type ViewMode = "folder" | "tree" | "flat";
+
+export interface CopyMoveTarget {
+  action: "copy" | "move";
+  key: string;
+  isFolder: boolean;
+}
+
+export type PreviewFile =
+  | { kind: "image" | "pdf" | "docx"; key: string; url: string }
+  | { kind: "text"; key: string; content: string };
+
+export interface CopyMove extends CopyMoveTarget {
+  destination: string;
+}
+
+export interface PutObject {
+  key: string;
+  body: Blob;
+  verb: "save" | "upload";
+}

@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Database, RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -7,21 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBuckets } from "@/hooks/useApi";
-import { profileKey, useProfileId } from "@/hooks/useProfileApi";
+import { useProfileId } from "@/hooks/useProfileApi";
 import { getErrorMessage } from "@/lib/errors";
 
 export function BucketList() {
-  const { data: buckets = [], isLoading: loading, error } = useBuckets();
-  const queryClient = useQueryClient();
+  const { data: buckets = [], isLoading: loading, error, refetch } = useBuckets();
   const profile = useProfileId();
   const [filterText, setFilterText] = useState("");
 
   const needle = filterText.trim().toLowerCase();
   const filtered = needle ? buckets.filter((bucket) => bucket.Name.toLowerCase().includes(needle)) : buckets;
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: profileKey(profile, "buckets") });
-  };
 
   if (loading) return <div className="p-6">Loading buckets...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {getErrorMessage(error)}</div>;
@@ -30,7 +24,7 @@ export function BucketList() {
     <div className="p-6">
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">S3 Buckets</h1>
-        <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh">
+        <Button variant="outline" size="icon" onClick={() => refetch()} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -61,7 +55,7 @@ export function BucketList() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Created: {new Date(bucket.CreationDate).toLocaleDateString()}
+                  Created: {bucket.CreationDate ? new Date(bucket.CreationDate).toLocaleDateString() : "-"}
                 </p>
               </CardContent>
             </Card>

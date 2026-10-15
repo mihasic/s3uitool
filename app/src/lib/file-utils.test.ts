@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { detectLanguage, getDualPreviewKind, getParentPrefix } from "./file-utils";
+import { detectLanguage, getDualPreviewKind, getParent } from "./file-utils";
 
 describe("detectLanguage", () => {
   it("detects json objects and arrays", () => {
@@ -22,29 +22,22 @@ describe("detectLanguage", () => {
   });
 });
 
-describe("getParentPrefix", () => {
-  it("should return empty string for empty prefix", () => {
-    expect(getParentPrefix("")).toBe("");
+describe("getParent", () => {
+  it("returns the enclosing folder", () => {
+    expect(getParent("a/b/")).toBe("a/");
+    expect(getParent("a/b/c.txt")).toBe("a/b/");
+    expect(getParent("a/b/c/")).toBe("a/b/");
+    expect(getParent("a/")).toBe("");
+    expect(getParent("top.txt")).toBe("");
   });
 
-  it("should return empty string for top-level folder", () => {
-    expect(getParentPrefix("folder/")).toBe("");
+  it("returns the root for the root", () => {
+    expect(getParent("")).toBe("");
   });
 
-  it("should return parent folder for nested folder", () => {
-    expect(getParentPrefix("folder/subfolder/")).toBe("folder/");
-  });
-
-  it("should return parent folder for deeply nested folder", () => {
-    expect(getParentPrefix("a/b/c/")).toBe("a/b/");
-  });
-
-  it("should handle prefix without trailing slash (treats last part as item to remove)", () => {
-    expect(getParentPrefix("folder/file")).toBe("folder/");
-  });
-
-  it("should return empty string for single file-like prefix", () => {
-    expect(getParentPrefix("file")).toBe("");
+  it("keeps empty segments", () => {
+    expect(getParent("a//b/")).toBe("a//");
+    expect(getParent("a//")).toBe("a/");
   });
 });
 

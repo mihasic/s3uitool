@@ -133,12 +133,12 @@ export const detectLanguage = (content: string): string => {
   return "plaintext";
 };
 
-export const getParentPrefix = (currentPrefix: string) => {
-  if (!currentPrefix) return "";
-  const parts = currentPrefix.split("/").filter(Boolean);
-  parts.pop();
-  return parts.length > 0 ? `${parts.join("/")}/` : "";
-};
+export function getParent(key: string): string {
+  const trimmed = key.endsWith("/") ? key.slice(0, -1) : key;
+  const lastSlash = trimmed.lastIndexOf("/");
+  if (lastSlash === -1) return "";
+  return `${trimmed.slice(0, lastSlash)}/`;
+}
 
 /** Validate an S3 object key/path. Returns an error message, or null if valid. */
 export const validateObjectKey = (key: string): string | null => {

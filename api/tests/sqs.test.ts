@@ -90,6 +90,26 @@ describe("sqs", () => {
     expect(await res.json()).toEqual({ message: "Queue purged successfully" });
   });
 
+  test("rejects a message without a body", async () => {
+    const res = await app.request(`/api/sqs/queues/${QUEUE}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ DelaySeconds: 0 }),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain("Body");
+  });
+
+  test("rejects malformed JSON when sending a message", async () => {
+    const res = await app.request(`/api/sqs/queues/${QUEUE}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Malformed JSON in request body" });
+  });
+
   test("returns 404 for an unknown queue", async () => {
     const res = await app.request("/api/sqs/queues/no-such-queue-xyz/messages");
     expect(res.status).toBe(404);

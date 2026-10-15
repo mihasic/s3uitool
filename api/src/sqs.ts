@@ -12,15 +12,9 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getSqsClient } from "./aws";
 import { type AppEnv, requireService } from "./context";
-import { nullable, respondWith, stringMap } from "./model";
-
-const queueModel = z.object({
-  Url: z.string(),
-  Name: z.string(),
-  Available: nullable(z.number()),
-  InFlight: nullable(z.number()),
-  Delayed: nullable(z.number()),
-});
+import { respondWith } from "./model";
+import { messageModel, queueModel, sendMessageRequestModel } from "./schema/sqs";
+import { validate } from "./validate";
 
 const COUNT_ATTRIBUTES = [
   "ApproximateNumberOfMessages",
@@ -47,14 +41,6 @@ async function queueCounts(sqs: SQSClient, url: string) {
     return { Available: null, InFlight: null, Delayed: null };
   }
 }
-
-const messageModel = z.object({
-  MessageId: z.string().default(""),
-  ReceiptHandle: z.string().default(""),
-  Body: z.string().default(""),
-  MD5OfBody: z.string().default(""),
-  Attributes: nullable(stringMap),
-});
 
 export const sqsRoutes = new Hono<AppEnv>();
 
@@ -94,9 +80,9 @@ sqsRoutes.get("/queues/:queueName/messages", async (c) => {
   return respondWith(z.array(messageModel), response.Messages ?? []);
 });
 
-sqsRoutes.post("/queues/:queueName/messages", async (c) => {
+sqsRoutes.post("/queues/:queueName/messages", validate("json", sendMessageRequestModel), async (c) => {
   const sqs = c.get("sqs");
-  const body = await c.req.json<{ Body: string; DelaySeconds?: number }>();
+  const body = c.req.valid("json");
   await sqs.send(
     new SendMessageCommand({
       QueueUrl: await queueUrl(sqs, c.req.param("queueName")),

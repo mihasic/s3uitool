@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProfileId } from "@/hooks/useProfileApi";
-import { getParentPrefix } from "@/lib/file-utils";
+import { getParent } from "@/lib/file-utils";
 import type { ViewMode } from "@/types/s3";
 
 interface ObjectBrowserToolbarProps {
@@ -84,7 +84,7 @@ export function ObjectBrowserToolbar({
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" className="w-9 h-9 shrink-0" asChild>
           {prefix ? (
-            <Link to="/$profile/s3/$bucket" params={{ profile, bucket }} search={{ prefix: getParentPrefix(prefix) }}>
+            <Link to="/$profile/s3/$bucket" params={{ profile, bucket }} search={{ prefix: getParent(prefix) }}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           ) : (

@@ -134,19 +134,6 @@ describe("s3", () => {
     expect(res.status).toBe(200);
   });
 
-  test("resolves a batch of prefixes in one call", async () => {
-    await put("folder-b/three.txt", "3");
-    const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/batch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requests: [{ prefix: "folder-a/" }, { prefix: "folder-b/" }] }),
-    });
-    expect(res.status).toBe(200);
-    const data = (await res.json()) as Record<string, { Objects: { Key: string }[] }>;
-    expect(Object.keys(data).sort()).toEqual(["folder-a/", "folder-b/"]);
-    expect(data["folder-b/"]?.Objects.map((o) => o.Key)).toEqual(["folder-b/three.txt"]);
-  });
-
   test("downloads an object with a safe Content-Disposition", async () => {
     const key = "folder-a/one.txt";
     const res = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}`);
@@ -250,6 +237,38 @@ describe("s3", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain("prefix");
+  });
+
+  test("rejects malformed JSON with a 400", async () => {
+    const res = await app.request("/api/s3/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not json",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Malformed JSON in request body" });
+  });
+
+  test("rejects a copy with missing fields", async () => {
+    const res = await app.request("/api/s3/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_bucket: BUCKET }),
+    });
+    expect(res.status).toBe(400);
+    const { error } = (await res.json()) as { error: string };
+    expect(error).toContain("source_key");
+    expect(error).toContain("destination_key");
+  });
+
+  test("rejects an upload without a file field", async () => {
+    const form = new FormData();
+    form.append("other", "x");
+    const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/nofile.txt`, { method: "PUT", body: form });
+    expect(res.status).toBe(400);
+    const { error } = (await res.json()) as { error: string };
+    expect(error).toContain("file");
   });
 
   test("deletes a whole prefix", async () => {

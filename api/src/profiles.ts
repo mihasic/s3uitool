@@ -2,8 +2,7 @@ import { readdirSync } from "node:fs";
 import type { S3ClientConfig } from "@aws-sdk/client-s3";
 import { fromIni, fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { loadSharedConfigFiles } from "@smithy/core/config";
-
-export type ProfileSource = "env" | "ambient" | "ini";
+import type { ProfileSource, PublicProfile } from "./schema/config";
 
 type Credentials = NonNullable<S3ClientConfig["credentials"]>;
 
@@ -19,16 +18,6 @@ export interface Profile {
   credentials?: Credentials;
   /** Changes whenever the resolved shape changes, so cached clients can be evicted. */
   fingerprint: string;
-}
-
-/** The profile shape sent to the frontend — no credentials, no endpoints. */
-export interface PublicProfile {
-  id: string;
-  label: string;
-  source: ProfileSource;
-  region?: string;
-  s3: boolean;
-  sqs: boolean;
 }
 
 export interface Registry {

@@ -1,17 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Message, SendMessageRequest } from "@api/schema/sqs";
+import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { SendMessageModal } from "@/components/SendMessageModal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { profileKey, useProfileApi } from "@/hooks/useProfileApi";
-import { getErrorMessage, reportError } from "@/lib/errors";
+import { messagesKey } from "@/hooks/useApi";
+import { useProfileApi } from "@/hooks/useProfileApi";
+import { queuePath } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import { detectLanguage } from "@/lib/file-utils";
-import type { Message } from "@/types/s3";
+import { useAppMutation } from "@/lib/query-client";
 
 // Monaco is most of the bundle — pull it in only when a message is opened.
 const FileViewer = lazy(() => import("@/components/FileViewer").then((m) => ({ default: m.FileViewer })));
@@ -21,12 +23,11 @@ const route = getRouteApi("/$profile/sqs/$queueName");
 export function MessageList() {
   const { profile, queueName } = route.useParams();
   const api = useProfileApi();
-  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const messagesKey = profileKey(profile, "messages", queueName);
+  const queryKey = messagesKey(profile, queueName);
   const {
     data: messages = [],
     isLoading: loading,
@@ -34,35 +35,25 @@ export function MessageList() {
     error,
     refetch,
   } = useQuery({
-    queryKey: messagesKey,
-    queryFn: () => api.get<Message[]>(`sqs/queues/${queueName}/messages`),
+    queryKey,
+    queryFn: () => api.get<Message[]>(`${queuePath(queueName)}/messages`),
     refetchInterval: 5000,
   });
 
-  const sendMutation = useMutation({
-    mutationFn: (vars: { body: string; delaySeconds: number }) =>
-      api.post(`sqs/queues/${queueName}/messages`, { Body: vars.body, DelaySeconds: vars.delaySeconds }),
-    onSuccess: () => {
-      toast.success("Message sent successfully");
-      queryClient.invalidateQueries({ queryKey: messagesKey });
-    },
-    onError: (err) => reportError("Failed to send message", err),
+  const sendMutation = useAppMutation({
+    mutationFn: (request: SendMessageRequest) => api.post(`${queuePath(queueName)}/messages`, request),
+    error: "Failed to send message",
+    success: "Message sent successfully",
+    invalidates: queryKey,
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useAppMutation({
     mutationFn: (receiptHandle: string) =>
-      api.delete(`sqs/queues/${queueName}/messages/${encodeURIComponent(receiptHandle)}`),
-    onSuccess: () => {
-      toast.success("Message deleted successfully");
-      queryClient.invalidateQueries({ queryKey: messagesKey });
-    },
-    onError: (err) => reportError("Failed to delete message", err),
+      api.delete(`${queuePath(queueName)}/messages/${encodeURIComponent(receiptHandle)}`),
+    error: "Failed to delete message",
+    success: "Message deleted successfully",
+    invalidates: queryKey,
   });
-
-  const handleSend = async (body: string, delaySeconds: number) => {
-    // Swallow rejection here; onError already surfaces it. Lets the modal close either way.
-    await sendMutation.mutateAsync({ body, delaySeconds }).catch(() => {});
-  };
 
   const handleDelete = async (receiptHandle: string) => {
     const ok = await confirm({
@@ -96,7 +87,7 @@ export function MessageList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={() => setSendModalOpen(true)}>
+          <Button onClick={() => setSendTo(queueName)}>
             <Send className="h-4 w-4 mr-2" />
             Send Message
           </Button>
@@ -153,12 +144,7 @@ export function MessageList() {
         </Table>
       </div>
 
-      <SendMessageModal
-        isOpen={sendModalOpen}
-        onClose={() => setSendModalOpen(false)}
-        onSend={handleSend}
-        queueName={queueName}
-      />
+      <SendMessageModal queueName={sendTo} onClose={() => setSendTo(null)} send={sendMutation} />
 
       <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col">

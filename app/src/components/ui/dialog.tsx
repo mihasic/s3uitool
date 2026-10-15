@@ -63,6 +63,29 @@ function DialogDescription({ className, ...props }: React.ComponentProps<typeof 
   return <DialogPrimitive.Description className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
+interface FormDialogProps {
+  open: boolean;
+  onClose: () => void;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}
+
+function FormDialog({ open, onClose, title, description, className, children }: FormDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className={className} {...(description ? {} : { "aria-describedby": undefined })}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export {
   Dialog,
   DialogClose,
@@ -74,4 +97,5 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  FormDialog,
 };
