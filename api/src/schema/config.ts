@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const profileSourceModel = z.enum(["env", "ambient", "ini"]);
+const profileSourceModel = z.enum(["env", "ambient", "ini"]);
 
-export const publicProfileModel = z.object({
+const publicProfileModel = z.object({
   id: z.string(),
   label: z.string(),
   source: profileSourceModel,
@@ -13,7 +13,7 @@ export const publicProfileModel = z.object({
 
 export const appConfigModel = z.object({
   defaultProfile: z.string(),
-  profiles: z.array(publicProfileModel),
+  profiles: z.array(publicProfileModel).min(1),
 });
 
 export const identityModel = z.object({

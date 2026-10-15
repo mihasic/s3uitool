@@ -20,7 +20,7 @@ export const s3ObjectContentModel = s3ObjectModel.extend({
   Content: nullable(z.string()),
 });
 
-export const commonPrefixModel = z.object({ Prefix: z.string().default("") });
+const commonPrefixModel = z.object({ Prefix: z.string().default("") });
 
 export const objectListModel = z.object({
   Objects: z.array(s3ObjectModel),
@@ -33,37 +33,42 @@ export const objectListModel = z.object({
 export const objectListQueryModel = z.object({
   prefix: z.string().default(""),
   continuation_token: z.string().optional(),
-  max_keys: z.coerce.number().int().positive().catch(1000),
+  max_keys: z.coerce.number<number>().int().positive().default(1000).catch(1000),
   filter_text: z.string().optional(),
   delimiter: z.string().optional(),
 });
 
+export const uploadFormModel = z.object({ file: z.instanceof(File) });
+
+export const downloadQueryModel = z.object({ inline: z.stringbool().default(false) });
+
 export const deletePrefixRequestModel = z.object({ prefix: z.string() });
 
-export const copyRequestModel = z.object({
+const copyBase = z.object({
   source_bucket: z.string().min(1),
+  destination_bucket: z.string().min(1),
+  move: z.boolean().optional(),
+});
+
+export const copyRequestModel = copyBase.extend({
   source_key: z.string().min(1),
-  destination_bucket: z.string().min(1),
   destination_key: z.string().min(1),
-  move: z.boolean().optional(),
 });
 
-export const copyPrefixRequestModel = z.object({
-  source_bucket: z.string().min(1),
+export const copyPrefixRequestModel = copyBase.extend({
   source_prefix: z.string(),
-  destination_bucket: z.string().min(1),
   destination_prefix: z.string(),
-  move: z.boolean().optional(),
 });
 
-export const downloadPrefixQueryModel = z.object({ prefix: z.string().default("") });
+export const downloadPrefixQueryModel = objectListQueryModel.pick({ prefix: true });
 
 export type Bucket = z.output<typeof bucketModel>;
 export type S3Object = z.output<typeof s3ObjectModel>;
 export type S3ObjectContent = z.output<typeof s3ObjectContentModel>;
-export type CommonPrefix = z.output<typeof commonPrefixModel>;
 export type ObjectList = z.output<typeof objectListModel>;
+export type ObjectListInput = z.input<typeof objectListModel>;
 export type ObjectListQuery = z.output<typeof objectListQueryModel>;
+export type ObjectListParams = z.input<typeof objectListQueryModel>;
 export type DeletePrefixRequest = z.input<typeof deletePrefixRequestModel>;
 export type CopyRequest = z.input<typeof copyRequestModel>;
 export type CopyPrefixRequest = z.input<typeof copyPrefixRequestModel>;

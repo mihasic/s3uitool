@@ -11,7 +11,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getS3Client } from "./aws";
 import { type AppEnv, requireService } from "./context";
@@ -22,18 +21,19 @@ import {
   copyRequestModel,
   deletePrefixRequestModel,
   downloadPrefixQueryModel,
+  downloadQueryModel,
+  type ObjectListInput,
   type ObjectListQuery,
   objectListModel,
   objectListQueryModel,
   s3ObjectContentModel,
   type s3ObjectModel,
+  uploadFormModel,
 } from "./schema/s3";
 import { validate } from "./validate";
 import { type ZipEntry, zipStream } from "./zip";
 
-const BATCH_CONCURRENCY = 10;
-
-type ObjectList = z.input<typeof objectListModel>;
+const COPY_CONCURRENCY = 10;
 
 export const s3Routes = new Hono<AppEnv>();
 
@@ -52,8 +52,8 @@ async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): Asy
 async function fetchObjects(
   s3: S3Client,
   bucket: string,
-  { prefix, continuation_token, max_keys = 1000, filter_text, delimiter = "/" }: ObjectListQuery,
-): Promise<ObjectList> {
+  { prefix, continuation_token, max_keys, filter_text, delimiter = "/" }: ObjectListQuery,
+): Promise<ObjectListInput> {
   const input: ListObjectsV2CommandInput = {
     Bucket: bucket,
     Prefix: filter_text ? prefix + filter_text : prefix,
@@ -87,7 +87,6 @@ function contentDisposition(disposition: string, filename: string): string {
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-/** Bound how many prefix lookups are in flight at once. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
@@ -136,7 +135,7 @@ s3Routes.get("/buckets/:bucket/objects/:key{.+}", async (c) => {
   });
 });
 
-s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
+s3Routes.get("/buckets/:bucket/download/:key{.+}", validate("query", downloadQueryModel), async (c) => {
   const key = c.req.param("key");
   const response = await c.get("s3").send(new GetObjectCommand({ Bucket: c.req.param("bucket"), Key: key }));
 
@@ -146,7 +145,7 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
   // Without a charset, `?inline=true` previews of UTF-8 text render as mojibake.
   if (contentType.startsWith("text/") && !contentType.includes("charset=")) contentType += "; charset=utf-8";
 
-  const disposition = c.req.query("inline") === "true" ? "inline" : "attachment";
+  const disposition = c.req.valid("query").inline ? "inline" : "attachment";
   return new Response(response.Body?.transformToWebStream(), {
     headers: {
       "Content-Type": contentType,
@@ -156,13 +155,10 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", async (c) => {
   });
 });
 
-s3Routes.put("/buckets/:bucket/objects/:key{.+}", async (c) => {
+s3Routes.put("/buckets/:bucket/objects/:key{.+}", validate("form", uploadFormModel), async (c) => {
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
-  const form = await c.req.formData();
-  const file = form.get("file");
-  if (!(file instanceof File))
-    throw new HTTPException(400, { message: "Expected a multipart body with a `file` field" });
+  const { file } = c.req.valid("form");
 
   const contentType = file.type || Bun.file(key).type;
   await new Upload({
@@ -225,7 +221,7 @@ s3Routes.post("/copy-prefix", validate("json", copyPrefixRequestModel), async (c
   let count = 0;
   for await (const page of allObjectPages(s3, req.source_bucket, req.source_prefix)) {
     const keys = page.filter((key) => key.startsWith(req.source_prefix));
-    await mapWithConcurrency(keys, BATCH_CONCURRENCY, (srcKey) =>
+    await mapWithConcurrency(keys, COPY_CONCURRENCY, (srcKey) =>
       s3.send(
         new CopyObjectCommand({
           Bucket: req.destination_bucket,

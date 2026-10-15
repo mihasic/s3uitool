@@ -86,12 +86,6 @@ describe("s3", () => {
     expect(await res.json()).toEqual({ error: "Object not found" });
   });
 
-  test("returns 404 when listing a missing bucket", async () => {
-    const res = await app.request("/api/s3/buckets/no-such-bucket-here/objects");
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "Bucket not found" });
-  });
-
   test("returns 404 for a missing bucket", async () => {
     const res = await app.request("/api/s3/buckets/no-such-bucket-xyz/objects");
     expect(res.status).toBe(404);
@@ -273,7 +267,8 @@ describe("s3", () => {
     form.append("other", "x");
     const res = await app.request(`/api/s3/buckets/${BUCKET}/objects/nofile.txt`, { method: "PUT", body: form });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Expected a multipart body with a `file` field" });
+    const { error } = (await res.json()) as { error: string };
+    expect(error).toContain("file");
   });
 
   test("deletes a whole prefix", async () => {
