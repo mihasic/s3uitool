@@ -8,7 +8,7 @@ import { corsMiddleware } from "./cors";
 import { onError } from "./errors";
 import { callerIdentity } from "./identity";
 import { respondWith } from "./model";
-import { findProfile, getRegistry, toPublicProfile } from "./profiles";
+import { findProfile, getRegistry } from "./profiles";
 import { s3Routes } from "./s3";
 import { appConfigModel, identityModel } from "./schema/config";
 import { sqsRoutes } from "./sqs";
@@ -46,7 +46,7 @@ app.route("/api/sqs", sqsRoutes);
 
 app.get("/api/config", async () => {
   const { profiles, defaultId } = await getRegistry(true);
-  return respondWith(appConfigModel, { defaultProfile: defaultId, profiles: profiles.map(toPublicProfile) });
+  return respondWith(appConfigModel, { defaultProfile: defaultId, profiles });
 });
 
 app.use("/api/:profile/identity", (c, next) => withProfile(c, next, c.req.param("profile")));

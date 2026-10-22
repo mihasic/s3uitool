@@ -1,6 +1,5 @@
 import type { ObjectList, ObjectListParams } from "@api/schema/s3";
 import {
-  keepPreviousData,
   partialMatchKey,
   type Query,
   type UseQueryResult,
@@ -22,12 +21,19 @@ function savedViewMode(): ViewMode {
   return saved === "folder" || saved === "tree" || saved === "flat" ? saved : "folder";
 }
 
+export const PAGE_SIZES = [5, 10, 20, 50, 100];
+
+function savedPageSize(): number {
+  const saved = Number(localStorage.getItem("pageSize"));
+  return PAGE_SIZES.includes(saved) ? saved : 20;
+}
+
 export interface Listing {
   prefix: string;
   flat: boolean;
 }
 
-export function listingOf(query: Query, profile: string, bucket: string): Listing | null {
+export function listingOf(query: Pick<Query, "queryKey">, profile: string, bucket: string): Listing | null {
   const bucketKey = objectsKey(profile, bucket);
   if (query.queryKey.length !== bucketKey.length + 1 || !partialMatchKey(query.queryKey, bucketKey)) return null;
   const params = query.queryKey[bucketKey.length] as ObjectListParams;
@@ -54,7 +60,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
   const filterText = useDebounce(rawFilterText, 500);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(savedPageSize);
 
   const bucketKey = objectsKey(profile, bucket);
   const listing = (params: ObjectListParams) => ({
@@ -63,15 +69,17 @@ export function useObjectBrowser(bucket: string, prefix: string) {
       api.get<ObjectList>(withSearch(`${bucketPath(bucket)}/objects`, params), { signal }),
   });
 
+  const flat = viewMode === "flat";
   const root = useQuery({
     ...listing({
       prefix,
       filter_text: filterText || undefined,
       continuation_token: pageTokens[currentPage] ?? undefined,
       max_keys: pageSize,
-      delimiter: viewMode === "flat" ? "" : "/",
+      delimiter: flat ? "" : "/",
     }),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery && listingOf(previousQuery, profile, bucket)?.flat === flat ? previous : undefined,
   });
   const rootData = root.isPlaceholderData ? undefined : root.data;
 
@@ -113,7 +121,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     setViewMode: (mode: ViewMode) => {
       localStorage.setItem("viewMode", mode);
       setViewModeState(mode);
-      if (mode === "tree") setAutoExpand(true);
+      resetPaging();
     },
     refresh: () => queryClient.invalidateQueries({ queryKey: bucketKey }),
     toggleFolder: (folder: string) => {
@@ -137,6 +145,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     pageTokens: knownTokens,
     pageSize,
     setPageSize: (size: number) => {
+      localStorage.setItem("pageSize", String(size));
       setPageSize(size);
       resetPaging();
     },
