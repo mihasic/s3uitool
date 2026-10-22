@@ -3,8 +3,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
-    "typescript": "^7.0.2"
+    "lint-staged": "^17.6.0"
   },
   "overrides": {
     "dompurify": "^3.4.16"
@@ -19,7 +18,7 @@
     "lint": "biome lint .",
     "fix": "biome check --write .",
     "check": "biome ci .",
-    "typecheck": "tsc -b",
+    "typecheck": "bun check --no-script",
     "test:app": "bun run --filter app test",
     "test:api": "bun run --filter api test",
     "test:e2e": "bun run --filter e2e test",

@@ -13,7 +13,7 @@ bun run dev:local   # dev stack pointed at the local emulators
 bun run seed        # seed test data (needs the emulators up)
 bun run test:api    # needs: docker compose up -d rustfs elasticmq
 bun run check       # Biome, whole repo
-bun run typecheck   # tsc -b, both workspaces
+bun run typecheck   # bun check, both workspaces (Bun ≥ 1.4.4)
 ```
 
 Dependency bumps and the rest of the routine upkeep: the `/chore` skill.
