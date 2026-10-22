@@ -68,6 +68,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     queryKey: [...bucketKey, params],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       api.get<ObjectList>(withSearch(`${bucketPath(bucket)}/objects`, params), { signal }),
+    staleTime: 0,
   });
 
   const root = useQuery({
