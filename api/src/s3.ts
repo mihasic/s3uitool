@@ -30,7 +30,7 @@ import {
   type s3ObjectModel,
   uploadFormModel,
 } from "./schema/s3";
-import { validate } from "./validate";
+import { parseForm, validate } from "./validate";
 import { type ZipEntry, zipStream } from "./zip";
 
 const COPY_CONCURRENCY = 10;
@@ -155,7 +155,7 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", validate("query", downloadQue
   });
 });
 
-s3Routes.put("/buckets/:bucket/objects/:key{.+}", validate("form", uploadFormModel), async (c) => {
+s3Routes.put("/buckets/:bucket/objects/:key{.+}", parseForm, validate("form", uploadFormModel), async (c) => {
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
   const { file } = c.req.valid("form");
