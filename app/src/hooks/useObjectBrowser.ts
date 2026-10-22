@@ -1,6 +1,5 @@
 import type { ObjectList, ObjectListParams } from "@api/schema/s3";
 import {
-  keepPreviousData,
   partialMatchKey,
   type Query,
   type UseQueryResult,
@@ -71,15 +70,17 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     staleTime: 0,
   });
 
+  const delimiter = viewMode === "flat" ? "" : "/";
   const root = useQuery({
     ...listing({
       prefix,
       filter_text: filterText || undefined,
       continuation_token: pageTokens[currentPage] ?? undefined,
       max_keys: pageSize,
-      delimiter: viewMode === "flat" ? "" : "/",
+      delimiter,
     }),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey.at(-1) as ObjectListParams | undefined)?.delimiter === delimiter ? previous : undefined,
   });
   const rootData = root.isPlaceholderData ? undefined : root.data;
 
@@ -121,7 +122,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     setViewMode: (mode: ViewMode) => {
       localStorage.setItem("viewMode", mode);
       setViewModeState(mode);
-      if (mode === "tree") setAutoExpand(true);
+      resetPaging();
     },
     refresh: () => queryClient.invalidateQueries({ queryKey: bucketKey }),
     toggleFolder: (folder: string) => {
