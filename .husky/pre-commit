@@ -5,4 +5,4 @@ set -e
 bunx lint-staged
 
 echo "Type checking..."
-bunx tsc -b
+bun run typecheck
