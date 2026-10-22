@@ -33,7 +33,7 @@ export interface Listing {
   flat: boolean;
 }
 
-export function listingOf(query: Query, profile: string, bucket: string): Listing | null {
+export function listingOf(query: Pick<Query, "queryKey">, profile: string, bucket: string): Listing | null {
   const bucketKey = objectsKey(profile, bucket);
   if (query.queryKey.length !== bucketKey.length + 1 || !partialMatchKey(query.queryKey, bucketKey)) return null;
   const params = query.queryKey[bucketKey.length] as ObjectListParams;
@@ -67,20 +67,19 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     queryKey: [...bucketKey, params],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       api.get<ObjectList>(withSearch(`${bucketPath(bucket)}/objects`, params), { signal }),
-    staleTime: 0,
   });
 
-  const delimiter = viewMode === "flat" ? "" : "/";
+  const flat = viewMode === "flat";
   const root = useQuery({
     ...listing({
       prefix,
       filter_text: filterText || undefined,
       continuation_token: pageTokens[currentPage] ?? undefined,
       max_keys: pageSize,
-      delimiter,
+      delimiter: flat ? "" : "/",
     }),
     placeholderData: (previous, previousQuery) =>
-      (previousQuery?.queryKey.at(-1) as ObjectListParams | undefined)?.delimiter === delimiter ? previous : undefined,
+      previousQuery && listingOf(previousQuery, profile, bucket)?.flat === flat ? previous : undefined,
   });
   const rootData = root.isPlaceholderData ? undefined : root.data;
 

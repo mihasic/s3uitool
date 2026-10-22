@@ -12,7 +12,6 @@ const FALLBACK_CONFIG: AppConfig = {
 export const configQuery = queryOptions({
   queryKey: ["config"],
   queryFn: () => getConfig().catch(fallbackConfig),
-  retry: false,
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
 });
