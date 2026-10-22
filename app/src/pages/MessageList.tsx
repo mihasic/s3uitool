@@ -6,7 +6,7 @@ import { lazy, Suspense, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { SendMessageModal } from "@/components/SendMessageModal";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { messagesKey } from "@/hooks/useApi";
 import { useProfileApi } from "@/hooks/useProfileApi";
@@ -146,44 +146,44 @@ export function MessageList() {
 
       <SendMessageModal queueName={sendTo} onClose={() => setSendTo(null)} send={sendMutation} />
 
-      <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Message Details</DialogTitle>
-            <DialogDescription>ID: {selectedMessage?.MessageId}</DialogDescription>
-          </DialogHeader>
-          {selectedMessage && (
-            <div className="flex-1 min-h-0 flex flex-col gap-4">
-              <div className="flex-1 min-h-0 flex flex-col gap-2">
-                <h4 className="font-medium leading-none">Body</h4>
-                <div className="flex-1 min-h-0">
-                  <Suspense
-                    fallback={
-                      <div className="flex h-full items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
-                    }
-                  >
-                    <FileViewer
-                      key={selectedMessage.MessageId}
-                      content={selectedMessage.Body}
-                      language={detectLanguage(selectedMessage.Body)}
-                    />
-                  </Suspense>
+      <FormDialog
+        open={selectedMessage !== null}
+        onClose={() => setSelectedMessage(null)}
+        title="Message Details"
+        description={selectedMessage && `ID: ${selectedMessage.MessageId}`}
+        className="max-w-4xl h-[80vh] flex flex-col"
+      >
+        {selectedMessage && (
+          <div className="flex-1 min-h-0 flex flex-col gap-4">
+            <div className="flex-1 min-h-0 flex flex-col gap-2">
+              <h4 className="font-medium leading-none">Body</h4>
+              <div className="flex-1 min-h-0">
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  }
+                >
+                  <FileViewer
+                    key={selectedMessage.MessageId}
+                    content={selectedMessage.Body}
+                    language={detectLanguage(selectedMessage.Body)}
+                  />
+                </Suspense>
+              </div>
+            </div>
+            {selectedMessage.Attributes && Object.keys(selectedMessage.Attributes).length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium leading-none">Attributes</h4>
+                <div className="p-4 bg-muted rounded-md font-mono text-sm max-h-32 overflow-y-auto">
+                  <pre>{JSON.stringify(selectedMessage.Attributes, null, 2)}</pre>
                 </div>
               </div>
-              {selectedMessage.Attributes && Object.keys(selectedMessage.Attributes).length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Attributes</h4>
-                  <div className="p-4 bg-muted rounded-md font-mono text-sm max-h-32 overflow-y-auto">
-                    <pre>{JSON.stringify(selectedMessage.Attributes, null, 2)}</pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </div>
+        )}
+      </FormDialog>
     </div>
   );
 }

@@ -1,13 +1,6 @@
 import { createContext, type ReactNode, use, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 
 interface ConfirmOptions {
   title: string;
@@ -41,25 +34,22 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext value={confirm}>
       {children}
-      <Dialog open={options !== null} onOpenChange={(open) => !open && settle(false)}>
-        <DialogContent
-          className="sm:max-w-[425px]"
-          {...(options?.description ? {} : { "aria-describedby": undefined })}
-        >
-          <DialogHeader>
-            <DialogTitle>{options?.title}</DialogTitle>
-            {options?.description && <DialogDescription>{options.description}</DialogDescription>}
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => settle(false)}>
-              {options?.cancelText ?? "Cancel"}
-            </Button>
-            <Button variant={options?.destructive ? "destructive" : "default"} onClick={() => settle(true)}>
-              {options?.confirmText ?? "Confirm"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={options !== null}
+        onClose={() => settle(false)}
+        title={options?.title}
+        description={options?.description}
+        className="sm:max-w-[425px]"
+      >
+        <DialogFooter>
+          <Button variant="outline" onClick={() => settle(false)}>
+            {options?.cancelText ?? "Cancel"}
+          </Button>
+          <Button variant={options?.destructive ? "destructive" : "default"} onClick={() => settle(true)}>
+            {options?.confirmText ?? "Confirm"}
+          </Button>
+        </DialogFooter>
+      </FormDialog>
     </ConfirmContext>
   );
 }
