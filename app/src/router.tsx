@@ -2,7 +2,7 @@ import type { AppConfig } from "@api/schema/config";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
-import { configQuery, fallbackConfig } from "@/hooks/useConfig";
+import { configQuery } from "@/hooks/useConfig";
 import { queryClient } from "@/lib/query-client";
 import { BucketList } from "@/pages/BucketList";
 import { MessageList } from "@/pages/MessageList";
@@ -12,7 +12,7 @@ import { defaultProfileId, findProfile } from "@/types/config";
 
 const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   beforeLoad: async ({ context }) => ({
-    config: await context.queryClient.ensureQueryData(configQuery).catch(fallbackConfig),
+    config: await context.queryClient.ensureQueryData(configQuery),
   }),
   pendingComponent: () => <div className="flex h-screen items-center justify-center">Loading...</div>,
   component: Layout,
