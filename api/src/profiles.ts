@@ -2,19 +2,13 @@ import { readdirSync } from "node:fs";
 import type { S3ClientConfig } from "@aws-sdk/client-s3";
 import { fromIni, fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { loadSharedConfigFiles } from "@smithy/core/config";
-import type { ProfileSource, PublicProfile } from "./schema/config";
+import type { PublicProfile } from "./schema/config";
 
 type Credentials = NonNullable<S3ClientConfig["credentials"]>;
 
-export interface Profile {
-  id: string;
-  label: string;
-  source: ProfileSource;
-  region?: string;
+export interface Profile extends PublicProfile {
   s3Endpoint?: string;
   sqsEndpoint?: string;
-  s3: boolean;
-  sqs: boolean;
   credentials?: Credentials;
   /** Changes whenever the resolved shape changes, so cached clients can be evicted. */
   fingerprint: string;
@@ -239,9 +233,4 @@ export function resetRegistry(): void {
 export async function findProfile(id: string): Promise<Profile | undefined> {
   const { profiles } = await getRegistry();
   return profiles.find((p) => p.id === id);
-}
-
-export function toPublicProfile(profile: Profile): PublicProfile {
-  const { id, label, source, region, s3, sqs } = profile;
-  return { id, label, source, region, s3, sqs };
 }
