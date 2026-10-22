@@ -41,7 +41,6 @@ const indexRoute = createRoute({
   beforeLoad: ({ context }) => {
     throw redirect(landing(context.config, defaultProfileId(context.config)));
   },
-  component: () => null,
 });
 
 const profileRoute = createRoute({
@@ -98,7 +97,6 @@ const legacyBucketsRoute = createRoute({
   beforeLoad: ({ context }) => {
     throw redirect({ to: "/$profile/s3", params: { profile: defaultProfileId(context.config) } });
   },
-  component: () => null,
 });
 
 const legacyObjectBrowserRoute = createRoute({
@@ -109,7 +107,6 @@ const legacyObjectBrowserRoute = createRoute({
     const profile = defaultProfileId(context.config);
     throw redirect({ to: "/$profile/s3/$bucket", params: { profile, bucket: params.bucket }, search });
   },
-  component: () => null,
 });
 
 const legacyQueuesRoute = createRoute({
@@ -118,7 +115,6 @@ const legacyQueuesRoute = createRoute({
   beforeLoad: ({ context }) => {
     throw redirect({ to: "/$profile/sqs", params: { profile: defaultProfileId(context.config) } });
   },
-  component: () => null,
 });
 
 const legacyMessagesRoute = createRoute({
@@ -128,7 +124,6 @@ const legacyMessagesRoute = createRoute({
     const profile = defaultProfileId(context.config);
     throw redirect({ to: "/$profile/sqs/$queueName", params: { profile, queueName: params.queueName } });
   },
-  component: () => null,
 });
 
 const routeTree = rootRoute.addChildren([

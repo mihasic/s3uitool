@@ -52,7 +52,7 @@ async function* allObjectKeys(s3: S3Client, bucket: string, prefix: string): Asy
 async function fetchObjects(
   s3: S3Client,
   bucket: string,
-  { prefix, continuation_token, max_keys, filter_text, delimiter = "/" }: ObjectListQuery,
+  { prefix, continuation_token, max_keys, filter_text, delimiter }: ObjectListQuery,
 ): Promise<ObjectListInput> {
   const input: ListObjectsV2CommandInput = {
     Bucket: bucket,
@@ -87,17 +87,12 @@ function contentDisposition(disposition: string, filename: string): string {
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
+async function forEachWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<unknown>): Promise<void> {
   let cursor = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await fn(items[index] as T);
-    }
+    while (cursor < items.length) await fn(items[cursor++] as T);
   });
   await Promise.all(workers);
-  return results;
 }
 
 s3Routes.get("/buckets", async (c) => {
@@ -221,7 +216,7 @@ s3Routes.post("/copy-prefix", validate("json", copyPrefixRequestModel), async (c
   let count = 0;
   for await (const page of allObjectPages(s3, req.source_bucket, req.source_prefix)) {
     const keys = page.filter((key) => key.startsWith(req.source_prefix));
-    await mapWithConcurrency(keys, COPY_CONCURRENCY, (srcKey) =>
+    await forEachWithConcurrency(keys, COPY_CONCURRENCY, (srcKey) =>
       s3.send(
         new CopyObjectCommand({
           Bucket: req.destination_bucket,

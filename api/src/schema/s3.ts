@@ -35,7 +35,7 @@ export const objectListQueryModel = z.object({
   continuation_token: z.string().optional(),
   max_keys: z.coerce.number<number>().int().positive().default(1000).catch(1000),
   filter_text: z.string().optional(),
-  delimiter: z.string().optional(),
+  delimiter: z.string().default("/"),
 });
 
 export const uploadFormModel = z.object({ file: z.instanceof(File) });
