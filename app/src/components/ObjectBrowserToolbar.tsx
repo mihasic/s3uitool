@@ -15,6 +15,7 @@ import { Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PAGE_SIZES } from "@/hooks/useObjectBrowser";
 import { useProfileId } from "@/hooks/useProfileApi";
 import { getParent } from "@/lib/file-utils";
 import type { ViewMode } from "@/types/s3";
@@ -192,7 +193,7 @@ export function ObjectBrowserToolbar({
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
               className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              {[5, 10, 20, 50, 100].map((size) => (
+              {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>

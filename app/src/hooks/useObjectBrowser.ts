@@ -22,6 +22,13 @@ function savedViewMode(): ViewMode {
   return saved === "folder" || saved === "tree" || saved === "flat" ? saved : "folder";
 }
 
+export const PAGE_SIZES = [5, 10, 20, 50, 100];
+
+function savedPageSize(): number {
+  const saved = Number(localStorage.getItem("pageSize"));
+  return PAGE_SIZES.includes(saved) ? saved : 20;
+}
+
 export interface Listing {
   prefix: string;
   flat: boolean;
@@ -54,7 +61,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
   const filterText = useDebounce(rawFilterText, 500);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(savedPageSize);
 
   const bucketKey = objectsKey(profile, bucket);
   const listing = (params: ObjectListParams) => ({
@@ -137,6 +144,7 @@ export function useObjectBrowser(bucket: string, prefix: string) {
     pageTokens: knownTokens,
     pageSize,
     setPageSize: (size: number) => {
+      localStorage.setItem("pageSize", String(size));
       setPageSize(size);
       resetPaging();
     },
