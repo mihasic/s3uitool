@@ -10,17 +10,17 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1152.0",
-    "@aws-sdk/client-sqs": "3.1152.0",
-    "@aws-sdk/client-sts": "3.1152.0",
-    "@aws-sdk/credential-providers": "3.1152.0",
-    "@aws-sdk/lib-storage": "3.1152.0",
-    "@smithy/core": "^3.36.0",
+    "@aws-sdk/client-s3": "3.1156.0",
+    "@aws-sdk/client-sqs": "3.1156.0",
+    "@aws-sdk/client-sts": "3.1156.0",
+    "@aws-sdk/credential-providers": "3.1156.0",
+    "@aws-sdk/lib-storage": "3.1156.0",
+    "@smithy/core": "^3.36.2",
     "fflate": "0.8.3",
     "hono": "4.13.13",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.3"
+    "@types/bun": "^1.4.4"
   }
 }
