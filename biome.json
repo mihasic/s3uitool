@@ -54,6 +54,10 @@
     {
       "includes": ["**/*.d.ts"],
       "linter": { "enabled": false }
+    },
+    {
+      "includes": ["README.md"],
+      "markdown": { "formatter": { "enabled": false } }
     }
   ],
   "formatter": {
@@ -74,8 +78,8 @@
     }
   },
   "markdown": {
-    "formatter": {
-      "enabled": false
+    "parser": {
+      "frontmatter": true
     }
   },
   "css": {

@@ -78,7 +78,6 @@ curl -s localhost:18765/api/health
 ## 6. Review
 
 Base = previous chore commit on main (`git log --grep '^chore(deps)' -1 --format=%h main`).
-
 1. `/code-review high <base>..HEAD`
 2. `/simplify` on the same range
 
