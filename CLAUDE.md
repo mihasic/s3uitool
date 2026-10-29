@@ -11,7 +11,7 @@ S3/SQS browser served as a single container: `api/` (Hono on Bun) serves the bui
 ```bash
 bun run dev:local   # dev stack pointed at the local emulators
 bun run seed        # seed test data (needs the emulators up)
-bun run test:api    # needs: docker compose up -d rustfs elasticmq
+bun run test:api    # needs the emulators; defaults to :19000/:19324, set AWS_{S3,SQS}_ENDPOINT_URL
 bun run check       # Biome, whole repo
 bun run typecheck   # bun check, both workspaces (Bun ≥ 1.4.4)
 ```

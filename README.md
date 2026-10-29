@@ -150,7 +150,8 @@ bun run dev:local          # same, pointed at the local emulators
 
 ```bash
 docker compose up -d rustfs elasticmq
-bun run test:api           # API integration tests against the emulators
+AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 \
+  bun run test:api         # API integration tests; without these it targets :19000/:19324
 bun run test:app
 
 bun run test:e2e                                   # starts `bun run dev` itself, or reuses it
