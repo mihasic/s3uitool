@@ -62,12 +62,12 @@ action publishes no major tag. Also check `Dockerfile` bases (`oven/bun:1`,
 
 ```bash
 bun run check && bun run typecheck && bun run test:app && bun run --filter '*' build
-docker compose up -d rustfs elasticmq
-AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 bun run test:api
+docker compose up -d rustfs elasticmq && bun run test:api:local
 ```
 
 Port 9000/9324 may be taken locally — then publish the emulators on free ports with a
-`ports: !override [...]` compose file outside the repo and point the two env vars there. E2E runs in CI only.
+`ports: !override [...]` compose file outside the repo and run `test:api` with
+`AWS_S3_ENDPOINT_URL`/`AWS_SQS_ENDPOINT_URL` pointing there. E2E runs in CI only.
 
 If `Dockerfile` or the API build changed, build both arches and hit `/api/health` on each:
 

@@ -26,14 +26,13 @@ describe("app", () => {
     expect(await res.json()).toEqual({ error: 'Unknown profile "nosuchprofile"' });
   });
 
-  test("decodes the profile segment once", async () => {
-    const lone = await app.request("/api/x%25/s3/buckets");
-    expect(lone.status).toBe(404);
-    expect(await lone.json()).toEqual({ error: 'Unknown profile "x%"' });
-
-    const double = await app.request("/api/al%2574/s3/buckets");
-    expect(double.status).toBe(404);
-    expect(await double.json()).toEqual({ error: 'Unknown profile "al%74"' });
+  test.each([
+    ["x%25", "x%"],
+    ["al%2574", "al%74"],
+  ])("decodes the profile segment %s once", async (segment, id) => {
+    const res = await app.request(`/api/${segment}/s3/buckets`);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: `Unknown profile "${id}"` });
   });
 
   test("falls back to the index for malformed escapes", async () => {
