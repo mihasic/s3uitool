@@ -150,7 +150,7 @@ bun run dev:local          # same, pointed at the local emulators
 
 ```bash
 docker compose up -d rustfs elasticmq
-bun run test:api           # API integration tests against the emulators
+bun run test:api:local     # API integration tests against the emulators
 bun run test:app
 
 bun run test:e2e                                   # starts `bun run dev` itself, or reuses it

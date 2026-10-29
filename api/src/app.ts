@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Context, Next } from "hono";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { tryDecodeURIComponent } from "hono/utils/url";
 import type { AppEnv } from "./context";
 import { corsMiddleware } from "./cors";
 import { onError } from "./errors";
@@ -25,7 +26,7 @@ app.onError(onError);
 
 /** `id` is undefined on the unprefixed legacy routes, which stay bound to the default. */
 async function withProfile(c: Context<AppEnv>, next: Next, id?: string): Promise<void> {
-  const wanted = id ? decodeURIComponent(id) : (await getRegistry()).defaultId;
+  const wanted = id ?? (await getRegistry()).defaultId;
   const profile = await findProfile(wanted);
   if (!profile) throw new HTTPException(404, { message: `Unknown profile "${wanted}"` });
   c.set("profile", profile);
@@ -55,7 +56,7 @@ app.get("/api/:profile/identity", async (c) => respondWith(identityModel, await 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.get("/*", (c) => {
-  const path = decodeURIComponent(c.req.path).replace(/^\//, "");
+  const path = tryDecodeURIComponent(c.req.path).replace(/^\//, "");
   if (path.startsWith("api/")) return c.json({ error: "Not found" }, 404);
 
   const index = join(STATIC_DIR, "index.html");

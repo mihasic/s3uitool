@@ -26,6 +26,21 @@ describe("app", () => {
     expect(await res.json()).toEqual({ error: 'Unknown profile "nosuchprofile"' });
   });
 
+  test.each([
+    ["x%25", "x%"],
+    ["al%2574", "al%74"],
+  ])("decodes the profile segment %s once", async (segment, id) => {
+    const res = await app.request(`/api/${segment}/s3/buckets`);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: `Unknown profile "${id}"` });
+  });
+
+  test("falls back to the index for malformed escapes", async () => {
+    const res = await app.request("/s3/x%");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<title>app</title>");
+  });
+
   test("falls back to the index for profile-scoped SPA routes", async () => {
     const res = await app.request("/alt/s3/documents");
     expect(res.status).toBe(200);

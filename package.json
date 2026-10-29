@@ -1,7 +1,7 @@
 {
   "name": "s3uitool",
   "devDependencies": {
-    "@biomejs/biome": "^2.6.2",
+    "@biomejs/biome": "^2.6.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0"
   },
@@ -21,6 +21,7 @@
     "typecheck": "bun check --no-script",
     "test:app": "bun run --filter app test",
     "test:api": "bun run --filter api test",
+    "test:api:local": "AWS_S3_ENDPOINT_URL=http://localhost:9000 AWS_SQS_ENDPOINT_URL=http://localhost:9324 bun run test:api",
     "test:e2e": "bun run --filter e2e test",
     "test:e2e:ui": "bun run --filter e2e test --ui",
     "seed": "bun run --filter api seed",
