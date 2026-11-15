@@ -1,6 +1,6 @@
 ---
 name: chore
-description: Routine upkeep for s3uitool — bump packages (72h backoff), bun audit, bump GitHub Actions and base images, /code-review, /simplify, refresh README/CLAUDE.md, open a PR, release on request. Use for "regular chore", "bump deps/packages", "bump actions", "dependency update".
+description: Routine upkeep for s3uitool — bump packages (72h backoff), bun audit, bump GitHub Actions and base images, /code-review, /simplify, refresh README/AGENTS.md, open a PR, release on request. Use for "regular chore", "bump deps/packages", "bump actions", "dependency update".
 ---
 
 # Regular chore
@@ -80,6 +80,7 @@ curl -s localhost:18765/api/health
 ## 6. Review
 
 Base = previous chore commit on main (`git log --grep '^chore(deps)' -1 --format=%h main`).
+
 1. `/code-review high <base>..HEAD`
 2. `/simplify` on the same range
 
@@ -87,7 +88,7 @@ Apply confirmed findings as separate commits, re-run step 5.
 
 ## 7. Docs
 
-Check `README.md` and `CLAUDE.md` against the code: `package.json` scripts, env vars
+Check `README.md` and `AGENTS.md` against the code: `package.json` scripts, env vars
 (`grep -rn 'process.env' api/src`) and their real defaults, `Dockerfile`, `docker-compose.yml`,
 workflows, `scripts/`. Fix stale facts; cut duplication and prose the code already says.
 

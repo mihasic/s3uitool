@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 S3/SQS browser served as a single container: `api/` (Hono on Bun) serves the built
 `app/` (React + Vite) as static files. `e2e/` is Playwright. One Bun workspace, one
