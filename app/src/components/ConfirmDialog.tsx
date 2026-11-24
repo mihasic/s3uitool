@@ -19,6 +19,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
   const confirm: ConfirmFn = (opts) => {
+    resolverRef.current?.(false);
     setOptions(opts);
     return new Promise<boolean>((resolve) => {
       resolverRef.current = resolve;

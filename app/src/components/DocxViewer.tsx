@@ -11,35 +11,35 @@ export function DocxViewer({ url }: DocxViewerProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     const loadDocx = async () => {
       try {
         setLoading(true);
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error("Failed to download file");
 
         const blob = await response.blob();
-        if (!active) return;
+        if (controller.signal.aborted) return;
 
         if (containerRef.current) {
-          containerRef.current.innerHTML = "";
+          containerRef.current.replaceChildren();
           await renderAsync(blob, containerRef.current, containerRef.current, {
             inWrapper: false, // We handle the wrapper
             ignoreWidth: false,
           });
         }
       } catch (err) {
-        if (active) reportError("Failed to render DOCX preview", err);
+        if (!controller.signal.aborted) reportError("Failed to render DOCX preview", err);
       } finally {
-        if (active) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     loadDocx();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [url]);
 

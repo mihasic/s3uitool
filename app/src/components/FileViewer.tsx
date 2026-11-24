@@ -15,6 +15,8 @@ interface FileViewerProps {
   toolbarLeading?: ReactNode;
 }
 
+const FORMATTABLE_LANGUAGES = new Set(["json", "xml", "html"]);
+
 const formatXml = (xml: string) => {
   let formatted = "";
   let pad = 0;
@@ -113,7 +115,7 @@ export function FileViewer({ content, language = "plaintext", onSave, onChange, 
     }
   };
 
-  const showTools = ["json", "xml", "html"].includes(language || "");
+  const showTools = FORMATTABLE_LANGUAGES.has(language);
 
   return (
     <div className="h-full w-full flex flex-col gap-2">

@@ -64,7 +64,6 @@ export const getDualPreviewKind = (filename: string): DualPreviewKind | null => 
 export const getLanguageFromFilename = (filename: string): string => {
   switch (fileExtension(filename)) {
     case "js":
-    // eslint-disable-next-line no-fallthrough
     case "jsx":
       return "javascript";
     case "ts":

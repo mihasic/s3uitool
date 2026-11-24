@@ -11,27 +11,27 @@ if ! command -v aws &> /dev/null; then
 fi
 
 # Determine Profile
-PROFILE_ARG=""
-if [ ! -z "$AWS_PROFILE" ]; then
-    PROFILE_ARG="--profile $AWS_PROFILE"
+PROFILE_ARGS=()
+if [ -n "$AWS_PROFILE" ]; then
+    PROFILE_ARGS=(--profile "$AWS_PROFILE")
     echo "Using AWS_PROFILE=$AWS_PROFILE"
 else
     echo "Using default AWS profile"
 fi
 
 # Determine Region
-if [ ! -z "$AWS_REGION" ]; then
+if [ -n "$AWS_REGION" ]; then
     REGION=$AWS_REGION
 else
     # `configure get` exits non-zero when the key is unset; don't let `set -e` kill us.
-    REGION=$(aws configure get region $PROFILE_ARG || true)
+    REGION=$(aws configure get region "${PROFILE_ARGS[@]}" || true)
 fi
 if [ -z "$REGION" ]; then
     REGION="us-east-1" # Fallback
 fi
 
 echo "Fetching credentials..."
-if ! CREDS=$(aws configure export-credentials $PROFILE_ARG --format env); then
+if ! CREDS=$(aws configure export-credentials "${PROFILE_ARGS[@]}" --format env); then
     echo "Error fetching credentials. Ensure you are logged in."
     exit 1
 fi

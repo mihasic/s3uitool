@@ -14,15 +14,9 @@ export function Layout() {
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 300) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
-    };
+    const handleScroll = () => setShowScrollTop(window.scrollY > 300);
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -59,6 +53,7 @@ export function Layout() {
         <Button
           onClick={scrollToTop}
           size="icon"
+          aria-label="Scroll to top"
           className="fixed bottom-8 right-8 rounded-full shadow-lg z-50 animate-in fade-in duration-200"
         >
           <ArrowUp className="h-4 w-4" />
