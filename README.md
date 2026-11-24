@@ -87,7 +87,8 @@ Profiles come from three sources:
 
    Supported suffixes: `LABEL`, `REGION`, `ENDPOINT_URL`, `S3_ENDPOINT_URL`,
    `SQS_ENDPOINT_URL`, `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `SESSION_TOKEN`,
-   `AWS_PROFILE`, `ENABLE_S3`, `ENABLE_SQS`. Anything omitted falls back to the global value.
+   `AWS_PROFILE`, `ENABLE_S3`, `ENABLE_SQS`. Service-specific endpoints fall back to the
+   group's `ENDPOINT_URL`, and `ENABLE_S3`/`ENABLE_SQS` inherit the global flags.
 3. **Profiles found in `~/.aws/config` and `~/.aws/credentials`**, including SSO,
    `credential_process` and assume-role profiles. This needs the files to be readable by the
    server, so it does nothing in the stock container unless you mount them:
