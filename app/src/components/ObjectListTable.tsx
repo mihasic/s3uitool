@@ -23,6 +23,62 @@ interface ObjectListTableProps {
   viewMode: ViewMode;
 }
 
+const SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
+
+function formatSize(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), SIZE_UNITS.length - 1);
+  return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${SIZE_UNITS[i]}`;
+}
+
+function isPreviewAvailable(filename: string): boolean {
+  // If no extension, we still allow previewing as it could be an image or text
+  if (!filename.includes(".")) return true;
+
+  const ext = fileExtension(filename);
+  return !!(ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx"));
+}
+
+function FlatFilePath({
+  profile,
+  bucket,
+  objectKey,
+  onClick,
+}: {
+  profile: string;
+  bucket: string;
+  objectKey: string;
+  onClick: () => void;
+}) {
+  const parts = objectKey.split("/");
+  const fileName = parts.pop();
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {parts.map((part, idx) => {
+        const partPrefix = `${parts.slice(0, idx + 1).join("/")}/`;
+        return (
+          <Fragment key={partPrefix}>
+            <Link
+              to="/$profile/s3/$bucket"
+              params={{ profile, bucket }}
+              search={{ prefix: partPrefix }}
+              className="text-muted-foreground hover:underline text-sm"
+            >
+              {part}
+            </Link>
+            <span className="text-muted-foreground text-sm">/</span>
+          </Fragment>
+        );
+      })}
+      <button type="button" onClick={onClick} className="font-medium hover:underline text-left">
+        {fileName}
+      </button>
+    </div>
+  );
+}
+
 export function ObjectListTable({
   items,
   loading = false,
@@ -40,22 +96,6 @@ export function ObjectListTable({
 }: ObjectListTableProps) {
   const profile = useProfileId();
   const [isDragging, setIsDragging] = useState(false);
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
-  };
-
-  const isPreviewAvailable = (filename: string) => {
-    // If no extension, we still allow previewing as it could be an image or text
-    if (!filename.includes(".")) return true;
-
-    const ext = fileExtension(filename);
-    return !!(ext && (TEXTUAL_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || ext === "pdf" || ext === "docx"));
-  };
 
   const handleFileClick = (key: string) => {
     if (isPreviewAvailable(key)) {
@@ -209,41 +249,12 @@ export function ObjectListTable({
                 </TableCell>
                 <TableCell>
                   {viewMode === "flat" ? (
-                    <div className="flex flex-wrap items-center gap-1">
-                      {(() => {
-                        const parts = item.key.split("/");
-                        const fileName = parts.pop();
-                        const pathParts = parts;
-
-                        return (
-                          <>
-                            {pathParts.map((part, idx) => {
-                              const partPrefix = `${parts.slice(0, idx + 1).join("/")}/`;
-                              return (
-                                <Fragment key={partPrefix}>
-                                  <Link
-                                    to="/$profile/s3/$bucket"
-                                    params={{ profile, bucket }}
-                                    search={{ prefix: partPrefix }}
-                                    className="text-muted-foreground hover:underline text-sm"
-                                  >
-                                    {part}
-                                  </Link>
-                                  <span className="text-muted-foreground text-sm">/</span>
-                                </Fragment>
-                              );
-                            })}
-                            <button
-                              type="button"
-                              onClick={() => handleFileClick(item.key)}
-                              className="font-medium hover:underline text-left"
-                            >
-                              {fileName}
-                            </button>
-                          </>
-                        );
-                      })()}
-                    </div>
+                    <FlatFilePath
+                      profile={profile}
+                      bucket={bucket}
+                      objectKey={item.key}
+                      onClick={() => handleFileClick(item.key)}
+                    />
                   ) : (
                     <button
                       type="button"

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DialogFooter, FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { validateObjectKey } from "@/lib/file-utils";
 import type { AppMutation } from "@/lib/query-client";
 import type { CopyMove, CopyMoveTarget } from "@/types/s3";
 
@@ -33,29 +34,43 @@ function CopyMoveForm({
   copyMove,
 }: Omit<CopyMoveModalProps, "target"> & { target: CopyMoveTarget; verb: string }) {
   const [destination, setDestination] = useState(target.key);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => copyMove.mutate({ ...target, destination }, { onSuccess: onClose });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationError = validateObjectKey(destination);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    if (destination === target.key) {
+      setError("Destination must be different from the current path");
+      return;
+    }
+    copyMove.mutate({ ...target, destination }, { onSuccess: onClose });
+  };
 
   return (
-    <>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Input
-            id="destination"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            className="col-span-4"
-          />
-        </div>
+    <form onSubmit={handleSubmit}>
+      <div className="grid gap-2 py-4">
+        <Input
+          id="destination"
+          value={destination}
+          onChange={(e) => {
+            setDestination(e.target.value);
+            setError(null);
+          }}
+        />
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleConfirm} disabled={copyMove.isPending}>
+        <Button type="submit" disabled={copyMove.isPending || !destination.trim() || destination === target.key}>
           {verb}
         </Button>
       </DialogFooter>
-    </>
+    </form>
   );
 }

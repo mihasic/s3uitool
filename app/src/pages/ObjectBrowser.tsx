@@ -171,6 +171,12 @@ export function ObjectBrowser() {
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (preview || copyMoveTarget || uploadDraft || newFilePrefix !== null) return;
+    if (
+      e.target instanceof Element &&
+      e.target.closest("input, textarea, select, [contenteditable], [role='dialog']")
+    ) {
+      return;
+    }
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -217,11 +223,11 @@ export function ObjectBrowser() {
   };
 
   const handleDownload = (key: string) => {
-    window.open(api.url(downloadPath(bucket, key)), "_blank");
+    window.open(api.url(downloadPath(bucket, key)), "_blank", "noopener,noreferrer");
   };
 
   const handleDownloadFolder = (prefix: string) => {
-    window.open(api.url(downloadPrefixPath(bucket, prefix)), "_blank");
+    window.open(api.url(downloadPrefixPath(bucket, prefix)), "_blank", "noopener,noreferrer");
   };
 
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;

@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { unzipSync } from "fflate";
 import { app } from "../src/app";
 import { resetRegistry } from "../src/profiles";
+import { safeZipPath } from "../src/zip";
 
 const BUCKET = "test-bucket-1";
 
@@ -144,14 +145,25 @@ describe("s3", () => {
     const inline = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}?inline=true`);
     expect(inline.headers.get("content-disposition")?.startsWith("inline;")).toBe(true);
     expect(inline.headers.get("content-type")).toStartWith("text/plain");
+    expect(inline.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(inline.headers.get("content-security-policy")).toBe("sandbox");
   });
 
-  test("keeps quotes and non-ASCII out of the ASCII Content-Disposition fallback", async () => {
-    const key = 'odd/wé"ird ünïcode.txt';
+  test("leaves inline PDF previews unsandboxed so browser PDF viewers can render them", async () => {
+    const key = "docs/sample.pdf";
+    await put(key, "%PDF-1.4\n", "application/pdf");
+    const res = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}?inline=true`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toBeNull();
+  });
+
+  test("keeps quotes, backslashes and non-ASCII out of the ASCII Content-Disposition fallback", async () => {
+    const key = 'odd/wé"ird\\ünïcode.txt';
     await put(key, "x");
     const res = await app.request(`/api/s3/buckets/${BUCKET}/download/${encodeURIComponent(key)}`);
     expect(res.headers.get("content-disposition")).toBe(
-      `attachment; filename="w?'ird ?n?code.txt"; filename*=UTF-8''${encodeURIComponent('wé"ird ünïcode.txt')}`,
+      `attachment; filename="w?'ird'?n?code.txt"; filename*=UTF-8''${encodeURIComponent('wé"ird\\ünïcode.txt')}`,
     );
   });
 
@@ -189,6 +201,40 @@ describe("s3", () => {
     expect((await app.request(`/api/s3/buckets/${BUCKET}/objects/copy-src%2Fa.txt`)).status).toBe(404);
   });
 
+  test("rejects moving an object onto itself without deleting it", async () => {
+    await put("keep-me.txt", "safe");
+    const res = await app.request("/api/s3/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_bucket: BUCKET,
+        source_key: "keep-me.txt",
+        destination_bucket: BUCKET,
+        destination_key: "keep-me.txt",
+        move: true,
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect((await app.request(`/api/s3/buckets/${BUCKET}/objects/keep-me.txt`)).status).toBe(200);
+  });
+
+  test("rejects copying or moving a prefix onto itself or a descendant", async () => {
+    for (const destination_prefix of ["tree/", "tree/nested/"]) {
+      const res = await app.request("/api/s3/copy-prefix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_bucket: BUCKET,
+          source_prefix: "tree/",
+          destination_bucket: BUCKET,
+          destination_prefix,
+          move: true,
+        }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
   test("copies a whole prefix", async () => {
     await put("tree/x/1.txt", "1");
     await put("tree/y/2.txt", "2");
@@ -217,10 +263,17 @@ describe("s3", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/zip");
     expect(res.headers.get("content-disposition")).toContain('filename="tree.zip"');
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
 
     const archive = unzipSync(new Uint8Array(await res.arrayBuffer()));
     expect(Object.keys(archive).sort()).toEqual(["x/1.txt", "y/2.txt"]);
     expect(new TextDecoder().decode(archive["x/1.txt"])).toBe("1");
+  });
+
+  test("strips path-traversal segments from zip entry names", () => {
+    expect(safeZipPath("../../escape.txt")).toBe("escape.txt");
+    expect(safeZipPath("/leading/./sub/../file.txt")).toBe("leading/sub/file.txt");
+    expect(safeZipPath("..")).toBe("");
   });
 
   test("deletes a single object", async () => {
