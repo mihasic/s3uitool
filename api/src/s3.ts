@@ -11,6 +11,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { getS3Client } from "./aws";
 import { type AppEnv, requireService } from "./context";
@@ -31,7 +32,7 @@ import {
   uploadFormModel,
 } from "./schema/s3";
 import { validate } from "./validate";
-import { type ZipEntry, zipStream } from "./zip";
+import { safeZipPath, type ZipEntry, zipStream } from "./zip";
 
 const COPY_CONCURRENCY = 10;
 
@@ -80,10 +81,10 @@ async function fetchObjects(
   };
 }
 
-/** RFC 5987: survives quotes and non-ASCII in keys. */
+/** RFC 5987: survives quotes, backslashes and non-ASCII in keys. */
 function contentDisposition(disposition: string, filename: string): string {
   // Browsers prefer `filename*`; `filename` is the ASCII fallback.
-  const ascii = filename.replace(/[^\x20-\x7e]/g, "?").replaceAll('"', "'");
+  const ascii = filename.replace(/[^\x20-\x7e]/g, "?").replace(/["\\]/g, "'");
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
@@ -140,11 +141,18 @@ s3Routes.get("/buckets/:bucket/download/:key{.+}", validate("query", downloadQue
   // Without a charset, `?inline=true` previews of UTF-8 text render as mojibake.
   if (contentType.startsWith("text/") && !contentType.includes("charset=")) contentType += "; charset=utf-8";
 
-  const disposition = c.req.valid("query").inline ? "inline" : "attachment";
+  const inline = c.req.valid("query").inline;
+  const disposition = inline ? "inline" : "attachment";
   return new Response(response.Body?.transformToWebStream(), {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": contentDisposition(disposition, key.split("/").pop() ?? key),
+      "X-Content-Type-Options": "nosniff",
+      // Sandbox inline downloads (HTML/SVG) so user content cannot run scripts on this origin;
+      // skip PDFs because Chromium's built-in viewer refuses sandboxed responses.
+      ...(inline && !contentType.toLowerCase().startsWith("application/pdf")
+        ? { "Content-Security-Policy": "sandbox" }
+        : {}),
       ...(response.ContentLength !== undefined ? { "Content-Length": String(response.ContentLength) } : {}),
     },
   });
@@ -191,6 +199,9 @@ function copySource(bucket: string, key: string): string {
 
 s3Routes.post("/copy", validate("json", copyRequestModel), async (c) => {
   const req = c.req.valid("json");
+  if (req.source_bucket === req.destination_bucket && req.source_key === req.destination_key) {
+    throw new HTTPException(400, { message: "Source and destination must be different" });
+  }
   const s3 = c.get("s3");
 
   await s3.send(
@@ -211,6 +222,12 @@ s3Routes.post("/copy", validate("json", copyRequestModel), async (c) => {
 
 s3Routes.post("/copy-prefix", validate("json", copyPrefixRequestModel), async (c) => {
   const req = c.req.valid("json");
+  if (
+    req.source_bucket === req.destination_bucket &&
+    (req.destination_prefix === req.source_prefix || req.destination_prefix.startsWith(req.source_prefix))
+  ) {
+    throw new HTTPException(400, { message: "Destination prefix cannot be the same as or inside the source prefix" });
+  }
   const s3 = c.get("s3");
 
   let count = 0;
@@ -256,9 +273,8 @@ s3Routes.get("/buckets/:bucket/download-prefix", validate("query", downloadPrefi
       }
       if (!body) continue;
 
-      let arcname = key.startsWith(prefix) ? key.slice(prefix.length) : key;
-      if (arcname.startsWith("/")) arcname = arcname.slice(1);
-      if (!arcname) arcname = key.split("/").pop() ?? key;
+      const raw = key.startsWith(prefix) ? key.slice(prefix.length) : key;
+      const arcname = safeZipPath(raw) || safeZipPath(key.split("/").pop() ?? "") || "file";
 
       yield { name: arcname, data: body };
     }
@@ -271,6 +287,7 @@ s3Routes.get("/buckets/:bucket/download-prefix", validate("query", downloadPrefi
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": contentDisposition("attachment", filename),
+      "X-Content-Type-Options": "nosniff",
     },
   });
 });

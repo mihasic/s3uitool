@@ -8,6 +8,14 @@ type ChunkReader = {
 
 export type ZipEntry = { name: string; data: { getReader(): ChunkReader } };
 
+/** Strip leading slashes and dot segments so zip entries cannot escape on extraction. */
+export function safeZipPath(path: string): string {
+  return path
+    .split("/")
+    .filter((segment) => segment && segment !== "." && segment !== "..")
+    .join("/");
+}
+
 /** fflate and Bun.hash want a non-shared buffer. */
 type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -58,6 +66,11 @@ class NativeDeflate implements ZipInputFile {
     this.#pump ??= this.#start();
     await this.#writer.close();
     await this.#pump;
+  }
+
+  async abort(reason?: unknown): Promise<void> {
+    await this.#writer.abort(reason).catch(() => {});
+    await this.#pump?.catch(() => {});
   }
 }
 
@@ -129,6 +142,7 @@ export function zipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint
     async cancel(reason) {
       ended = true;
       await current?.reader.cancel(reason);
+      await current?.file.abort(reason);
       await source.return?.(undefined);
     },
   });
